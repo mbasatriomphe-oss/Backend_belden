@@ -13,8 +13,13 @@ return new class extends Migration
     {
         Schema::create('taux', function (Blueprint $table) {
             $table->id();
-            $table->string('nom', 50);
+            $table->unsignedBigInteger('devise_source');
+            $table->unsignedBigInteger('devise_but');
             $table->decimal('valeur', 5, 2);
+            $table->date('date_effet');
+            $table->enum('statut',['actif','inactif'])->default('inactif');
+            $table->foreign('devise_source')->references('id')->on('devises');
+            $table->foreign('devise_but')->references('id')->on('devises');
             $table->timestamps();
         });
     }

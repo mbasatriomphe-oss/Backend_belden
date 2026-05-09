@@ -13,6 +13,10 @@ return new class extends Migration
     {
         Schema::create('devises', function (Blueprint $table) {
             $table->id();
+            // creer les champs pour la table devises
+            $table->string('code', 4)->unique();
+            $table->string('nom', 50);
+            $table->string('symbole', 10);
             $table->timestamps();
         });
     }

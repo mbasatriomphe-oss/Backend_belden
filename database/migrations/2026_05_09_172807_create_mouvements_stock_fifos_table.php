@@ -11,10 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('unites', function (Blueprint $table) {
+        Schema::create('mouvements_stock_fifos', function (Blueprint $table) {
             $table->id();
-            $table->string('nom');
-            $table->string('symbole', 10);
             $table->timestamps();
         });
     }
@@ -24,6 +22,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('unites');
+        Schema::dropIfExists('mouvements_stock_fifos');
     }
 };
