@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             // cree moi les champs pour la table clients
             $table->string('nom', 90);
-            $table->string('nom', 90);
-            $table->string('nom', 90);
+            $table->string('post_nom', 90);
+            $table->string('prenom', 90);
             $table->string('adresse', 63);
             $table->string('ville', 50);
             $table->string('pays', 50);

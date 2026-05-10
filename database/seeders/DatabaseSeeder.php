@@ -15,11 +15,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        // Ordre d'exécution important pour respecter les contraintes de clés étrangères
+        $this->call([
+            DeviseSeeder::class,        // 1. Devise (singulier)
+            UniteSeeder::class,         // 2. Unites (pluriel)
+            CategorieSeeder::class,     // 3. Categories (pluriel)
+            AdminUserSeeder::class,     // 4. User
+            TauxChangeSeeder::class,    // Caisses initiales
         ]);
     }
 }

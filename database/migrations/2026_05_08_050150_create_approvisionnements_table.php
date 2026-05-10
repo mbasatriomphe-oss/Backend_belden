@@ -17,6 +17,8 @@ return new class extends Migration
             $table->string('code', 50)->unique();
             $table->date('date');
             $table->unsignedBigInteger('id_user');
+            $table->unsignedBigInteger('id_fournisseur');
+            $table->foreign('id_fournisseur')->references('id')->on('fournisseurs');
             $table->foreign('id_user')->references('id')->on('users');
             $table->timestamps();
         });

@@ -18,10 +18,10 @@ return new class extends Migration
             $table->unsignedBigInteger('id_ligne_vente');
             $table->unsignedBigInteger('id_lot');
             $table->integer('quantite_retournee');
-            $table->decimal('prix_vente_original', 10, 2); // Prix payé par le client
-            $table->decimal('prix_remboursement', 10, 2);  // Prix qu'on va rembourser
-            $table->decimal('montant_penalite', 10, 2)->default(0.00); // Pénalité si applicable
-            $table->decimal('prix_unitaire_lot', 10, 2); // Prix d'achat du lot
+            $table->decimal('prix_vente_original', 20, 8); // Prix payé par le client
+            $table->decimal('prix_remboursement', 20, 8);  // Prix qu'on va rembourser
+            $table->decimal('montant_penalite', 20, 8)->default(0.00); // Pénalité si applicable
+            $table->decimal('prix_unitaire_lot', 20, 8); // Prix d'achat du lot
             
             // Raison de la différence de prix
             $table->enum('raison_difference', [

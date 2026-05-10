@@ -11,9 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('mouvements_stock_fifos', function (Blueprint $table) {
+        Schema::create('caisses', function (Blueprint $table) {
             $table->id();
+            //creer moi le champ pour la table caisses
+            $table->unsignedBigInteger('id_devise');
+            $table->foreign('id_devise')->references('id')->on('devises');
+            $table->decimal('solde', 20, 8);
             $table->timestamps();
+           
         });
     }
 
@@ -22,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('mouvements_stock_fifos');
+        Schema::dropIfExists('caisses');
     }
 };

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('devise_source');
             $table->unsignedBigInteger('devise_but');
-            $table->decimal('valeur', 5, 2);
+            $table->decimal('valeur', 20, 8);
             $table->date('date_effet');
             $table->enum('statut',['actif','inactif'])->default('inactif');
             $table->foreign('devise_source')->references('id')->on('devises');

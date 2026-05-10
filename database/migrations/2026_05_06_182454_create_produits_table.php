@@ -20,8 +20,8 @@ return new class extends Migration
             $table->string('photo')->nullable();
             $table->unsignedBigInteger('unite_id');
             $table->unsignedBigInteger('categorie_id');
-            $table->foreignId('unite_id')->constrained('unites');
-            $table->foreignId('categorie_id')->constrained('categories');
+            $table->foreign('unite_id')->references('id')->on('unites');
+            $table->foreign('categorie_id')->references('id')->on('categories');
             $table->timestamps();
         });
     }

@@ -17,7 +17,7 @@ return new class extends Migration
             $table->unsignedBigInteger('id_vente');
             $table->unsignedBigInteger('id_produit');
             $table->integer('quantite');
-            $table->decimal('prix_vente', 10, 2);
+            $table->decimal('prix_vente', 20, 8);
             $table->unsignedBigInteger('id_devise');
             $table->foreign('id_vente')->references('id')->on('ventes');
             $table->foreign('id_produit')->references('id')->on('produits');

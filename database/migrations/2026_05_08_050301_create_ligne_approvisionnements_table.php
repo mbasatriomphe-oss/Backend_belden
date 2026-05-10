@@ -17,11 +17,9 @@ return new class extends Migration
             $table->unsignedBigInteger('id_approvisionnement');
             $table->unsignedBigInteger('id_produit');
             $table->integer('quantite');
-            $table->decimal('prix_unitaire', 10, 2);
-            $table->decimal('prix_vente', 10, 2)->nullable();
+            $table->decimal('prix_unitaire', 20, 8);
+            $table->decimal('prix_vente', 20, 8)->nullable();
             $table->unsignedBigInteger('id_devise');
-            $table->unsignedBigInteger('id_fournisseur');
-            $table->foreign('id_fournisseur')->references('id')->on('fournisseurs');
             $table->foreign('id_approvisionnement')->references('id')->on('approvisionnements');
             $table->foreign('id_produit')->references('id')->on('produits');
             $table->foreign('id_devise')->references('id')->on('devises');
