@@ -16,17 +16,16 @@ return [
     */
 
     'paths' => ['api/*', 'sanctum/csrf-cookie', 'login', 'logout', 'register'],
-    'allowed_origins' => ['http://localhost:3000', 'ton-domaine.com'], // Ton URL Next.js
     'allowed_methods' => ['*'],
-    'allowed_headers' => ['*'],// Important pour les cookies
+    'allowed_headers' => ['*'],
 
-    
+    'allowed_origins' => [
+        env('FRONTEND_URL', 'http://localhost:3000'),
+        'http://localhost:3001',
+        'http://localhost:3002',
+    ],
 
-    
-
-    'allowed_origins' => [env('FRONTEND_URL', 'http://localhost:3000')],
-
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => ['#^http://localhost:\d+$#'],
 
     'exposed_headers' => [],
 

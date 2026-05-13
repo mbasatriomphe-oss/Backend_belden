@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -13,12 +14,54 @@ class UserController extends Controller
     /**
      * Afficher la liste des utilisateurs
      */
-    public function index()
+    public function index(Request $request)
     {
-        $users = User::all();
+        $query = User::query();
+        $search = trim((string) $request->query('search', ''));
+
+        if ($search !== '') {
+            $query->where(function (Builder $builder) use ($search): void {
+                $builder->where('nom', 'like', '%' . $search . '%')
+                    ->orWhere('post_nom', 'like', '%' . $search . '%')
+                    ->orWhere('prenom', 'like', '%' . $search . '%')
+                    ->orWhere('email', 'like', '%' . $search . '%')
+                    ->orWhere('role', 'like', '%' . $search . '%');
+            });
+        }
+
+        $allowedSorts = ['id', 'nom', 'post_nom', 'prenom', 'email', 'role', 'created_at', 'updated_at'];
+        $sortBy = $request->query('sort_by', 'id');
+
+        if (! in_array($sortBy, $allowedSorts, true)) {
+            $sortBy = 'id';
+        }
+
+        $sortDirection = strtolower((string) $request->query('sort_direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $perPage = $request->query('per_page', 15);
+
+        if ($perPage === 'all') {
+            $users = $query->orderBy($sortBy, $sortDirection)->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $users,
+                'meta' => [
+                    'total' => $users->count(),
+                ],
+            ]);
+        }
+
+        $users = $query->orderBy($sortBy, $sortDirection)->paginate((int) $perPage)->appends($request->query());
+
         return response()->json([
             'status' => 'success',
-            'data' => $users
+            'data' => $users->items(),
+            'meta' => [
+                'current_page' => $users->currentPage(),
+                'per_page' => $users->perPage(),
+                'total' => $users->total(),
+                'last_page' => $users->lastPage(),
+            ],
         ]);
     }
 

@@ -1,5 +1,4 @@
 <?php
-// app/Models/Taux.php
 
 namespace App\Models;
 
@@ -10,7 +9,7 @@ class Taux extends Model
 {
     use HasFactory;
 
-    protected $table = 'taux';  // ← AJOUTEZ CETTE LIGNE OBLIGATOIREMENT
+    protected $table = 'taux';
     
     protected $fillable = [
         'devise_source',
@@ -21,17 +20,22 @@ class Taux extends Model
     ];
 
     protected $casts = [
-        'valeur' => 'decimal:2',
+        'valeur' => 'decimal:8',
         'date_effet' => 'date',
     ];
 
     public function deviseSource()
     {
-        return $this->belongsTo(Devise::class, 'devise_source');
+        return $this->belongsTo(devise::class, 'devise_source');
     }
 
     public function deviseBut()
     {
-        return $this->belongsTo(Devise::class, 'devise_but');
+        return $this->belongsTo(devise::class, 'devise_but');
+    }
+
+    public function scopeActif($query)
+    {
+        return $query->where('statut', 'actif');
     }
 }
