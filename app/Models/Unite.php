@@ -4,15 +4,18 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Database\Factories\UserFactory; 
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;  
 
-class devise extends Model
+class Unite extends Model
 {
     use HasFactory;
 
-    protected $table = 'devises';
+    protected $table = 'unites';
 
     protected $fillable = [
-        'code',
         'nom',
         'symbole',
     ];

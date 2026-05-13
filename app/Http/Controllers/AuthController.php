@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\vendeurs;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -30,15 +31,15 @@ class AuthController extends Controller
             'prenom' => $validated['prenom'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'role' => 'user', // Par défaut, rôle user
+            'role' => 'user', // Par dÃ©faut, rÃ´le user
         ]);
 
-        // Créer un token Sanctum pour l'utilisateur
+        // CrÃ©er un token Sanctum pour l'utilisateur
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Inscription réussie',
+            'message' => 'Inscription rÃ©ussie',
             'user' => $user,
             'token' => $token,
             'token_type' => 'Bearer'
@@ -46,11 +47,11 @@ class AuthController extends Controller
     }
 
     /**
-     * Création d'un compte admin (à protéger ou à désactiver après usage)
+     * CrÃ©ation d'un compte admin (Ã  protÃ©ger ou Ã  dÃ©sactiver aprÃ¨s usage)
      */
     public function registerAdmin(Request $request)
     {
-        // Option 1: Protéger par un mot de passe secret
+        // Option 1: ProtÃ©ger par un mot de passe secret
         $request->validate([
             'secret' => 'required|string|in:' . env('ADMIN_SECRET_KEY', 'admin123'),
         ]);
@@ -76,7 +77,7 @@ class AuthController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Compte admin créé avec succès',
+            'message' => 'Compte admin crÃ©Ã© avec succÃ¨s',
             'user' => $user,
             'token' => $token,
             'token_type' => 'Bearer'
@@ -105,7 +106,7 @@ class AuthController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Connexion réussie',
+            'message' => 'Connexion rÃ©ussie',
             'user' => [
                 'id' => $user->id,
                 'nom' => $user->nom,
@@ -119,7 +120,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Déconnexion
+     * DÃ©connexion
      */
     public function logout(Request $request)
     {
@@ -127,7 +128,95 @@ class AuthController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Déconnexion réussie'
+            'message' => 'DÃ©connexion rÃ©ussie'
+        ]);
+    }
+
+    /**
+     * Inscription d'un vendeur
+     */
+    public function registerVendeur(Request $request)
+    {
+        $validated = $request->validate([
+            'nom' => 'required|string|max:100',
+            'prenom' => 'required|string|max:100',
+            'code' => 'required|string|max:50|unique:vendeurs',
+            'email' => 'required|string|email|max:255|unique:vendeurs',
+            'telephone' => 'nullable|string|max:20',
+            'adresse' => 'nullable|string',
+            'password' => ['required', 'confirmed', Password::defaults()],
+        ]);
+
+        $vendeur = vendeurs::create([
+            'nom' => $validated['nom'],
+            'prenom' => $validated['prenom'],
+            'code' => $validated['code'],
+            'email' => $validated['email'],
+            'telephone' => $validated['telephone'] ?? null,
+            'adresse' => $validated['adresse'] ?? null,
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        // CrÃ©er un token Sanctum pour le vendeur
+        $token = $vendeur->createToken('vendeur_auth_token')->plainTextToken;
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Inscription vendeur rÃ©ussie',
+            'vendeur' => $vendeur,
+            'token' => $token,
+            'token_type' => 'Bearer'
+        ], 201);
+    }
+
+    /**
+     * Connexion d'un vendeur
+     */
+    public function loginVendeur(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        // Tentative d'authentification avec le guard vendeur
+        if (!Auth::guard('vendeur')->attempt($request->only('email', 'password'))) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Email ou mot de passe incorrect'
+            ], 401);
+        }
+
+        $vendeur = vendeurs::where('email', $request->email)->firstOrFail();
+        $token = $vendeur->createToken('vendeur_auth_token')->plainTextToken;
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Connexion vendeur rÃ©ussie',
+            'vendeur' => [
+                'id' => $vendeur->id,
+                'nom' => $vendeur->nom,
+                'prenom' => $vendeur->prenom,
+                'code' => $vendeur->code,
+                'email' => $vendeur->email,
+                'telephone' => $vendeur->telephone,
+                'adresse' => $vendeur->adresse,
+            ],
+            'token' => $token,
+            'token_type' => 'Bearer'
+        ]);
+    }
+
+    /**
+     * DÃ©connexion d'un vendeur
+     */
+    public function logoutVendeur(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'DÃ©connexion vendeur rÃ©ussie'
         ]);
     }
 }

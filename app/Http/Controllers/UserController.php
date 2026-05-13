@@ -23,7 +23,7 @@ class UserController extends Controller
     }
 
     /**
-     * Créer un nouvel utilisateur
+     * CrÃ©er un nouvel utilisateur
      */
     public function store(Request $request)
     {
@@ -47,13 +47,13 @@ class UserController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Utilisateur créé avec succès',
+            'message' => 'Utilisateur crÃ©Ã© avec succÃ¨s',
             'data' => $user
         ], 201);
     }
 
     /**
-     * Afficher un utilisateur spécifique
+     * Afficher un utilisateur spÃ©cifique
      */
     public function show(User $user)
     {
@@ -64,7 +64,7 @@ class UserController extends Controller
     }
 
     /**
-     * Mettre à jour un utilisateur
+     * Mettre Ã  jour un utilisateur
      */
     public function update(Request $request, User $user)
     {
@@ -91,7 +91,7 @@ class UserController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Utilisateur mis à jour avec succès',
+            'message' => 'Utilisateur mis Ã  jour avec succÃ¨s',
             'data' => $user
         ]);
     }
@@ -105,7 +105,7 @@ class UserController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Utilisateur supprimé avec succès'
+            'message' => 'Utilisateur supprimÃ© avec succÃ¨s'
         ]);
     }
 }
