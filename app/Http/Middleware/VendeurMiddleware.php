@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 class VendeurMiddleware
@@ -11,10 +12,17 @@ class VendeurMiddleware
     /**
      * Handle an incoming request.
      *
-     * @param  Closure(Request): (Response)  $next
+     * @param  \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
+        if (!Auth::guard('vendeur')->check()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Non autorisé.',
+            ], 401);
+        }
+
         return $next($request);
     }
 }
