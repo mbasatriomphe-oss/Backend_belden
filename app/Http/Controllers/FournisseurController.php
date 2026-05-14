@@ -3,10 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\fournisseurs;
+use Illuminate\Database\Eloquent\Builder;
 
 class FournisseurController extends ApiCrudController
 {
     protected string $modelClass = fournisseurs::class;
+    protected array $searchable = ['nom', 'adresse', 'ville', 'pays', 'contact'];
+
+    protected function indexQuery(\Illuminate\Http\Request $request): Builder
+    {
+        return fournisseurs::query();
+    }
 
     protected function storeRules(): array
     {

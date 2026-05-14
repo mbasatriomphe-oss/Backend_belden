@@ -3,10 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Models\ligne_approvisionnements;
+use Illuminate\Database\Eloquent\Builder;
 
 class LigneApprovisionnementController extends ApiCrudController
 {
     protected string $modelClass = ligne_approvisionnements::class;
+
+    protected function indexQuery(\Illuminate\Http\Request $request): Builder
+    {
+        $query = ligne_approvisionnements::with(['approvisionnement.fournisseur', 'produit', 'devise', 'lots']);
+
+        if ($request->filled('id_approvisionnement')) {
+            $query->where('id_approvisionnement', $request->integer('id_approvisionnement'));
+        }
+
+        return $query;
+    }
 
     protected function storeRules(): array
     {

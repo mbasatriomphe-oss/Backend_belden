@@ -3,10 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\categories;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
 
 class CategorieController extends ApiCrudController
 {
     protected string $modelClass = categories::class;
+
+    protected function indexQuery(Request $request): Builder
+    {
+        return categories::withCount('produits');
+    }
 
     protected function storeRules(): array
     {

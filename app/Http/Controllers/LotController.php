@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\lots;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -10,6 +11,21 @@ use Illuminate\Validation\Rule;
 class LotController extends ApiCrudController
 {
     protected string $modelClass = lots::class;
+
+    protected function indexQuery(Request $request): Builder
+    {
+        $query = lots::with(['produit', 'approvisionnement.fournisseur', 'ligneApprovisionnement', 'devise']);
+
+        if ($request->filled('id_produit')) {
+            $query->where('id_produit', $request->integer('id_produit'));
+        }
+
+        if ($request->filled('id_approvisionnement')) {
+            $query->where('id_approvisionnement', $request->integer('id_approvisionnement'));
+        }
+
+        return $query;
+    }
 
     protected function storeRules(): array
     {

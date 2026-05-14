@@ -84,6 +84,16 @@ class MouvementStockFifoController extends ApiCrudController
         ]);
     }
 
+    public function stocksDisponibles(): JsonResponse
+    {
+        $stocks = DB::table('v_stock_disponible')->orderBy('nom')->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $stocks,
+        ]);
+    }
+
     public function mouvementsParProduit(int $produitId): JsonResponse
     {
         $mouvements = mouvements_stock_fifos::query()

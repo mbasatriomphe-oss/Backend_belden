@@ -15,12 +15,14 @@ class Taux extends Model
         'devise_source',
         'devise_but',
         'valeur',
+        'valeur_inverse',
         'date_effet',
         'statut',
     ];
 
     protected $casts = [
-        'valeur' => 'decimal:8',
+        'valeur' => 'decimal:16',
+        'valeur_inverse' => 'decimal:16',
         'date_effet' => 'date',
     ];
 

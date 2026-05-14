@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Laravel\Sanctum\HasApiTokens;
 
 class vendeurs extends Model
 {
-    use HasFactory;
+    use HasFactory, HasApiTokens;
 
     protected $table = 'vendeurs';
 
@@ -16,9 +17,19 @@ class vendeurs extends Model
         'prenom',
         'code',
         'email',
+        'password',
         'telephone',
         'adresse',
     ];
+
+    protected $hidden = [
+        'password',
+    ];
+
+    public function getRoleAttribute(): string
+    {
+        return 'vendeur';
+    }
 
     public function ventes()
     {

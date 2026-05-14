@@ -119,6 +119,44 @@ class AuthController extends Controller
     }
 
     /**
+     * Connexion vendeur (via table vendeurs : email + password)
+     */
+    public function loginVendeur(Request $request)
+    {
+        $request->validate([
+            'email'    => 'required|email',
+            'password' => 'required|string',
+        ]);
+
+        $vendeur = \App\Models\vendeurs::where('email', $request->email)->first();
+
+        if (!$vendeur || !Hash::check($request->password, $vendeur->password)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Email ou mot de passe vendeur incorrect',
+            ], 401);
+        }
+
+        $token = $vendeur->createToken('vendeur_auth_token')->plainTextToken;
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Connexion vendeur réussie',
+            'user' => [
+                'id'        => $vendeur->id,
+                'nom'       => $vendeur->nom,
+                'prenom'    => $vendeur->prenom,
+                'email'     => $vendeur->email,
+                'code'      => $vendeur->code,
+                'telephone' => $vendeur->telephone,
+                'role'      => 'vendeur',
+            ],
+            'token' => $token,
+            'token_type' => 'Bearer',
+        ]);
+    }
+
+    /**
      * Déconnexion
      */
     public function logout(Request $request)

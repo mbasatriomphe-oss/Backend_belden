@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             CategorieSeeder::class,     // 3. Categories (pluriel)
             AdminUserSeeder::class,     // 4. User
             TauxChangeSeeder::class,    // Caisses initiales
+            CaisseSoldeSeeder::class,   // Solde de test pour les approvisionnements
         ]);
     }
 }

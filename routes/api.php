@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Route;
 // Inscription et connexion
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login-vendeur', [AuthController::class, 'loginVendeur']);
 
 // Route publique pour créer le premier admin (à désactiver après utilisation)
 Route::post('/register-admin', [AuthController::class, 'registerAdmin']);
@@ -43,6 +44,21 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Récupérer l'utilisateur connecté
     Route::get('/user', function(Request $request) {
         return $request->user();
+    });
+
+    Route::middleware(['admin.or.vendeur'])->group(function () {
+        Route::apiResource('clients', ClientController::class);
+        Route::apiResource('ventes', VenteController::class);
+        Route::apiResource('retours', RetourController::class);
+
+        Route::get('/produits', [ProduitController::class, 'index'])->name('produits.index');
+        Route::get('/produits/{id}', [ProduitController::class, 'show'])->name('produits.show');
+        Route::get('/devises', [DeviseController::class, 'index'])->name('devises.index');
+        Route::get('/devises/{id}', [DeviseController::class, 'show'])->name('devises.show');
+        Route::get('/vendeurs', [VendeurController::class, 'index'])->name('vendeurs.index');
+        Route::get('/vendeurs/{id}', [VendeurController::class, 'show'])->name('vendeurs.show');
+        Route::get('/lots', [LotController::class, 'index'])->name('lots.index');
+        Route::get('/lots/{id}', [LotController::class, 'show'])->name('lots.show');
     });
     
     // Routes unités (lecture pour tous les utilisateurs authentifiés)
@@ -61,14 +77,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('categories', CategorieController::class);
         Route::apiResource('produits', ProduitController::class);
         Route::apiResource('fournisseurs', FournisseurController::class);
-        Route::apiResource('clients', ClientController::class);
-        Route::apiResource('vendeurs', VendeurController::class);
         Route::apiResource('approvisionnements', ApprovisionnementController::class);
         Route::apiResource('ligne-approvisionnements', LigneApprovisionnementController::class);
-        Route::apiResource('ventes', VenteController::class);
         Route::apiResource('ligne-ventes', LigneVenteController::class);
-        Route::apiResource('lots', LotController::class);
-        Route::apiResource('retours', RetourController::class);
         Route::apiResource('ligne-retours', LigneRetourController::class);
         Route::apiResource('caisses', CaisseController::class);
         Route::get('/caisses/devise/{idDevise}', [CaisseController::class, 'byDevise'])->name('caisses.byDevise');
@@ -76,6 +87,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/caisses/{id}/debit', [CaisseController::class, 'debit'])->name('caisses.debit');
         Route::apiResource('transactions-caisses', TransactionCaisseController::class);
         Route::apiResource('mouvements-stock-fifos', MouvementStockFifoController::class);
+        Route::get('/stocks/disponible', [MouvementStockFifoController::class, 'stocksDisponibles'])->name('stocks.disponible');
         Route::get('/stocks/produit/{produitId}', [MouvementStockFifoController::class, 'stockParProduit'])->name('stocks.produit');
         Route::get('/stocks/lot/{lotId}', [MouvementStockFifoController::class, 'stockParLot'])->name('stocks.lot');
         Route::get('/mouvements-stock-fifos/produit/{produitId}', [MouvementStockFifoController::class, 'mouvementsParProduit'])->name('mouvements-stock-fifos.produit');
