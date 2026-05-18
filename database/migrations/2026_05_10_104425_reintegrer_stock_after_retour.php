@@ -40,13 +40,13 @@ return new class extends Migration
                             SELECT SUM(quantite) 
                             FROM mouvements_stock_fifos 
                             WHERE id_lot = lot_origin_id 
-                            AND type_mouvement IN ("sortie", "retour")
+                            AND type_mouvement = "sortie"
                         ), 0) FROM lots WHERE id = lot_origin_id),
                         (SELECT quantite_initial - COALESCE((
                             SELECT SUM(quantite) 
                             FROM mouvements_stock_fifos 
                             WHERE id_lot = lot_origin_id 
-                            AND type_mouvement IN ("sortie", "retour")
+                            AND type_mouvement = "sortie"
                         ), 0) FROM lots WHERE id = lot_origin_id) + NEW.quantite_retournee,
                         CURDATE(), NOW()
                     );

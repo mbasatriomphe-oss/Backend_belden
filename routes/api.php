@@ -19,6 +19,7 @@ use App\Http\Controllers\LigneRetourController;
 use App\Http\Controllers\CaisseController;
 use App\Http\Controllers\MouvementStockFifoController;
 use App\Http\Controllers\TransactionCaisseController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RapportController;
 use App\Http\Controllers\TauxController;
 use Illuminate\Http\Request;
@@ -46,6 +47,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         return $request->user();
     });
 
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/notifications/unread', [NotificationController::class, 'unread'])->name('notifications.unread');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+
     Route::middleware(['admin.or.vendeur'])->group(function () {
         Route::apiResource('clients', ClientController::class);
         Route::apiResource('ventes', VenteController::class);
@@ -59,6 +64,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/vendeurs/{id}', [VendeurController::class, 'show'])->name('vendeurs.show');
         Route::get('/lots', [LotController::class, 'index'])->name('lots.index');
         Route::get('/lots/{id}', [LotController::class, 'show'])->name('lots.show');
+        Route::get('/stocks/disponible', [MouvementStockFifoController::class, 'stocksDisponibles'])->name('stocks.disponible');
+        Route::get('/taux/actif', [TauxController::class, 'actifByDate'])->name('taux.actif');
     });
     
     // Routes unités (lecture pour tous les utilisateurs authentifiés)
@@ -75,7 +82,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('users', UserController::class);
         Route::apiResource('devises', DeviseController::class);
         Route::apiResource('categories', CategorieController::class);
-        Route::apiResource('produits', ProduitController::class);
+        Route::post('/vendeurs', [VendeurController::class, 'store'])->name('vendeurs.store');
+        Route::put('/vendeurs/{id}', [VendeurController::class, 'update'])->name('vendeurs.update');
+        Route::delete('/vendeurs/{id}', [VendeurController::class, 'destroy'])->name('vendeurs.destroy');
+        Route::apiResource('produits', ProduitController::class)->except(['index', 'show']);
         Route::apiResource('fournisseurs', FournisseurController::class);
         Route::apiResource('approvisionnements', ApprovisionnementController::class);
         Route::apiResource('ligne-approvisionnements', LigneApprovisionnementController::class);
@@ -87,11 +97,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/caisses/{id}/debit', [CaisseController::class, 'debit'])->name('caisses.debit');
         Route::apiResource('transactions-caisses', TransactionCaisseController::class);
         Route::apiResource('mouvements-stock-fifos', MouvementStockFifoController::class);
-        Route::get('/stocks/disponible', [MouvementStockFifoController::class, 'stocksDisponibles'])->name('stocks.disponible');
         Route::get('/stocks/produit/{produitId}', [MouvementStockFifoController::class, 'stockParProduit'])->name('stocks.produit');
         Route::get('/stocks/lot/{lotId}', [MouvementStockFifoController::class, 'stockParLot'])->name('stocks.lot');
         Route::get('/mouvements-stock-fifos/produit/{produitId}', [MouvementStockFifoController::class, 'mouvementsParProduit'])->name('mouvements-stock-fifos.produit');
         Route::get('/mouvements-stock-fifos/lot/{lotId}', [MouvementStockFifoController::class, 'mouvementsParLot'])->name('mouvements-stock-fifos.lot');
+        Route::get('/mouvements-stock-fifos/vente/{venteId}', [MouvementStockFifoController::class, 'mouvementsParVente'])->name('mouvements-stock-fifos.vente');
         Route::get('/rapports/recap-journalier', [RapportController::class, 'recapJournalier'])->name('rapports.recap-journalier');
         Route::get('/rapports/etat-caisses', [RapportController::class, 'etatCaisses'])->name('rapports.etat-caisses');
         Route::get('/rapports/chiffre-affaires', [RapportController::class, 'chiffreAffaires'])->name('rapports.chiffre-affaires');
@@ -100,7 +110,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/rapports/marge-produit', [RapportController::class, 'margeProduit'])->name('rapports.marge-produit');
         Route::get('/rapports/mouvements-caisse', [RapportController::class, 'mouvementsCaisse'])->name('rapports.mouvements-caisse');
         Route::apiResource('taux', TauxController::class);
-        Route::get('/taux/actif', [TauxController::class, 'actifByDate'])->name('taux.actif');
         
         // Routes d'écriture pour les unités (CRUD)
         Route::prefix('unites')->group(function () {

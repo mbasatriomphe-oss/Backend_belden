@@ -22,7 +22,7 @@ return new class extends Migration
                     SELECT SUM(quantite) 
                     FROM mouvements_stock_fifos mf
                     WHERE mf.id_lot = l.id 
-                    AND mf.type_mouvement IN ("sortie", "retour")
+                    AND mf.type_mouvement = "sortie"
                 ), 0)), 0) as stock_actuel
             FROM produits p
             LEFT JOIN unites u ON u.id = p.unite_id
@@ -106,7 +106,7 @@ return new class extends Migration
                     SELECT SUM(quantite) 
                     FROM mouvements_stock_fifos mf
                     WHERE mf.id_lot = l.id 
-                    AND mf.type_mouvement IN ("sortie", "retour")
+                    AND mf.type_mouvement = "sortie"
                 ), 0)) as quantite_restante,
                 l.date_reception,
                 l.date_expiration,

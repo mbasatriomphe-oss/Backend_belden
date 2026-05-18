@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
+use App\Notifications\CrudActionNotification;
 
 abstract class ApiCrudController extends Controller
 {
@@ -107,6 +109,8 @@ abstract class ApiCrudController extends Controller
         $validated = $request->validate($this->storeRules());
         $model = ($this->modelClass)::create($this->prepareStoreData($validated, $request));
 
+        $this->notifyCrudAction($request, 'created', $model, 'Création réussie');
+
         return response()->json([
             'status' => 'success',
             'data' => $model,
@@ -120,6 +124,8 @@ abstract class ApiCrudController extends Controller
         $validated = $request->validate($this->updateRules($model));
         $model->update($this->prepareUpdateData($validated, $model, $request));
 
+        $this->notifyCrudAction($request, 'updated', $model->fresh(), 'Modification réussie');
+
         return response()->json([
             'status' => 'success',
             'data' => $model->fresh(),
@@ -129,7 +135,10 @@ abstract class ApiCrudController extends Controller
     public function destroy(int $id): JsonResponse
     {
         $model = ($this->modelClass)::findOrFail($id);
+        $modelSnapshot = $model->replicate();
         $model->delete();
+
+        $this->notifyCrudAction(request(), 'deleted', $modelSnapshot, 'Suppression réussie');
 
         return response()->json([
             'status' => 'success',
@@ -215,6 +224,81 @@ abstract class ApiCrudController extends Controller
         } while (DB::table($table)->where($column, $code)->exists());
 
         return $code;
+    }
+
+    protected function notifyCrudAction(Request $request, string $action, Model $model, string $title): void
+    {
+        $recipients = $this->notificationRecipients($request);
+
+        if ($recipients->isEmpty()) {
+            return;
+        }
+
+        $entityLabel = Str::headline(class_basename($this->modelClass));
+        $entityName = $this->resolveNotificationEntityName($model);
+        $actor = $request->user();
+
+        Notification::send($recipients, new CrudActionNotification([
+            'type' => 'crud_' . $action,
+            'title' => $title,
+            'message' => sprintf('%s de %s%s', $title, $entityLabel, $entityName ? ' : ' . $entityName : ''),
+            'action' => $action,
+            'entity' => $entityLabel,
+            'entity_id' => $model->getKey(),
+            'entity_name' => $entityName,
+            'actor_id' => $actor?->getKey(),
+            'actor_name' => $this->resolveActorName($actor),
+        ]));
+    }
+
+    protected function notificationRecipients(Request $request)
+    {
+        $recipients = collect();
+        $actor = $request->user();
+
+        $admins = class_exists(\App\Models\User::class)
+            ? \App\Models\User::query()->where('role', 'admin')->get()
+            : collect();
+
+        $recipients = $recipients->merge($admins);
+
+        if ($actor && method_exists($actor, 'notify')) {
+            $recipients->push($actor);
+        }
+
+        return $recipients->filter()->unique(function ($recipient): string {
+            return get_class($recipient) . ':' . (string) $recipient->getKey();
+        })->values();
+    }
+
+    protected function resolveNotificationEntityName(Model $model): ?string
+    {
+        foreach (['nom', 'code', 'title', 'name'] as $attribute) {
+            $value = $model->getAttribute($attribute);
+
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
+    }
+
+    protected function resolveActorName(?object $actor): ?string
+    {
+        if (! $actor) {
+            return null;
+        }
+
+        foreach (['name', 'nom', 'email'] as $attribute) {
+            $value = $actor->{$attribute} ?? null;
+
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
     }
 
     protected function storeRules(): array

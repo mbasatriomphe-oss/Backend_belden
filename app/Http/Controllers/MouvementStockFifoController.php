@@ -66,7 +66,7 @@ class MouvementStockFifoController extends ApiCrudController
                 'lots.numero_lot',
                 'lots.id_produit',
                 'lots.quantite_initial',
-                DB::raw('lots.quantite_initial - COALESCE(SUM(CASE WHEN mouvements_stock_fifos.type_mouvement IN ("sortie", "retour") THEN mouvements_stock_fifos.quantite ELSE 0 END), 0) as quantite_restante')
+                DB::raw('lots.quantite_initial - COALESCE(SUM(CASE WHEN mouvements_stock_fifos.type_mouvement = "sortie" THEN mouvements_stock_fifos.quantite ELSE 0 END), 0) as quantite_restante')
             )
             ->groupBy('lots.id', 'lots.numero_lot', 'lots.id_produit', 'lots.quantite_initial')
             ->first();
@@ -116,6 +116,37 @@ class MouvementStockFifoController extends ApiCrudController
             ->where('id_lot', $lotId)
             ->orderByDesc('date_mouvement')
             ->orderByDesc('id')
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $mouvements,
+        ]);
+    }
+
+    public function mouvementsParVente(int $venteId): JsonResponse
+    {
+        $mouvements = mouvements_stock_fifos::query()
+            ->select(
+                'mouvements_stock_fifos.id',
+                'mouvements_stock_fifos.id_lot',
+                'mouvements_stock_fifos.id_ligne_vente',
+                'mouvements_stock_fifos.id_ligne_retour',
+                'mouvements_stock_fifos.type_mouvement',
+                'mouvements_stock_fifos.quantite',
+                'mouvements_stock_fifos.quantite_restante_avant',
+                'mouvements_stock_fifos.quantite_restante_apres',
+                'mouvements_stock_fifos.date_mouvement',
+                'lots.numero_lot',
+                'lots.id_produit',
+                'produits.nom as produit_nom',
+            )
+            ->join('ligne_ventes', 'ligne_ventes.id', '=', 'mouvements_stock_fifos.id_ligne_vente')
+            ->join('lots', 'lots.id', '=', 'mouvements_stock_fifos.id_lot')
+            ->join('produits', 'produits.id', '=', 'lots.id_produit')
+            ->where('ligne_ventes.id_vente', $venteId)
+            ->orderByDesc('mouvements_stock_fifos.date_mouvement')
+            ->orderByDesc('mouvements_stock_fifos.id')
             ->get();
 
         return response()->json([
