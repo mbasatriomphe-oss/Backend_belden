@@ -41,4 +41,10 @@ class ventes extends Model
     {
         return $this->hasMany(retours::class, 'id_vente');
     }
+
+    public function transactionsCaisses()
+    {
+        return $this->hasMany(transactions_caisses::class, 'reference_id')
+            ->where('reference_type', 'vente');
+    }
 }

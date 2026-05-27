@@ -80,7 +80,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::middleware(['admin'])->group(function () {
         // Gestion complète des utilisateurs (CRUD)
         Route::apiResource('users', UserController::class);
-        Route::apiResource('devises', DeviseController::class);
+        Route::apiResource('devises', DeviseController::class)->except(['index', 'show']);
         Route::apiResource('categories', CategorieController::class);
         Route::post('/vendeurs', [VendeurController::class, 'store'])->name('vendeurs.store');
         Route::put('/vendeurs/{id}', [VendeurController::class, 'update'])->name('vendeurs.update');

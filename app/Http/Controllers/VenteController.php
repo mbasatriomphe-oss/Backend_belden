@@ -4,9 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\ventes;
 use App\Models\ligne_ventes;
+use App\Models\caisse;
+use App\Models\transactions_caisses;
 use App\Models\User;
 use App\Notifications\CrudActionNotification;
 use App\Notifications\StockInsuffisantNotification;
+use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
@@ -34,6 +38,13 @@ class VenteController extends ApiCrudController
         }
 
         return null;
+    }
+
+    private function canCancelSale(): bool
+    {
+        $role = auth()->user()?->role ?? null;
+
+        return in_array($role, ['admin', 'vendeur'], true);
     }
 
     private function notifySaleAction(string $action, ventes $vente): void
@@ -78,9 +89,19 @@ class VenteController extends ApiCrudController
         ]));
     }
 
+    private function decimalValue(string|int|float $value): BigDecimal
+    {
+        return BigDecimal::of((string) $value);
+    }
+
+    private function formatDecimal(BigDecimal $value): string
+    {
+        return $value->toScale(8, RoundingMode::HALF_UP)->__toString();
+    }
+
     protected function indexQuery(Request $request): Builder
     {
-        $query = ventes::with(['vendeur', 'client', 'lignes.produit', 'lignes.devise']);
+        $query = ventes::with(['vendeur', 'client', 'lignes.produit', 'lignes.devise', 'transactionsCaisses.caisse.devise']);
 
         if ($request->filled('id_vendeur')) {
             $query->where('id_vendeur', $request->integer('id_vendeur'));
@@ -104,12 +125,59 @@ class VenteController extends ApiCrudController
             'date'                    => 'required|date',
             'id_vendeur'              => 'required|integer|exists:vendeurs,id',
             'id_client'               => 'required|integer|exists:clients,id',
+            'paiements'               => 'required|array|min:1',
+            'paiements.*.devise_id'   => 'required|integer|exists:devises,id',
+            'paiements.*.montant'     => 'required|numeric|min:0.01',
             'lignes'                  => 'required|array|min:1',
             'lignes.*.id_produit'     => 'required|integer|exists:produits,id',
             'lignes.*.quantite'       => 'required|integer|min:1',
             'lignes.*.prix_vente'     => 'required|numeric|min:0',
             'lignes.*.id_devise'      => 'required|integer|exists:devises,id',
         ];
+    }
+
+    private function recordCashMovement(
+        int $deviseId,
+        string $type,
+        float $montant,
+        string $referenceType,
+        int $referenceId,
+        string $description,
+        ?int $createdBy = null,
+    ): void {
+        $caisse = caisse::query()
+            ->where('id_devise', $deviseId)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $caisse) {
+            throw new \RuntimeException('Aucune caisse n\'est configurée pour cette devise.');
+        }
+
+        $montantDecimal = $this->decimalValue($montant);
+        $soldeAvant = $this->decimalValue($caisse->solde);
+
+        if ($type === 'sortie' && $soldeAvant->isLessThan($montantDecimal)) {
+            throw new \RuntimeException('Solde insuffisant dans la caisse.');
+        }
+
+        $soldeApres = $type === 'entree'
+            ? $soldeAvant->plus($montantDecimal)
+            : $soldeAvant->minus($montantDecimal);
+
+        $caisse->update(['solde' => $this->formatDecimal($soldeApres)]);
+
+        transactions_caisses::create([
+            'id_caisse' => $caisse->getKey(),
+            'type' => $type,
+            'montant' => $this->formatDecimal($montantDecimal),
+            'reference_type' => $referenceType,
+            'reference_id' => $referenceId,
+            'description' => $description,
+            'solde_avant' => $this->formatDecimal($soldeAvant),
+            'solde_apres' => $this->formatDecimal($soldeApres),
+            'created_by' => $createdBy ?? auth()->user()?->id,
+        ]);
     }
 
     protected function updateRules(Model $model): array
@@ -131,6 +199,7 @@ class VenteController extends ApiCrudController
         $validated = $request->validate($this->storeRules());
 
         $lineItems   = $validated['lignes'];
+        $payments    = $validated['paiements'];
         $productIds  = array_map(static fn (array $l) => (int) $l['id_produit'], $lineItems);
 
         if (count($productIds) !== count(array_unique($productIds))) {
@@ -170,7 +239,7 @@ class VenteController extends ApiCrudController
                     'message' => 'Une vente a été refusée car le stock était insuffisant.',
                     'vente_code' => $validated['code'] ?? null,
                     'items' => $insufficientItems,
-                    'created_by' => (int) auth()->id(),
+                    'created_by' => (int) (auth()->user()?->id ?? 0),
                     'created_by_name' => auth()->user()?->nom ?? auth()->user()?->email ?? 'Système',
                 ]));
             }
@@ -183,7 +252,7 @@ class VenteController extends ApiCrudController
         }
 
         try {
-            $created = DB::transaction(function () use ($validated, $lineItems) {
+            $created = DB::transaction(function () use ($validated, $lineItems, $payments) {
                 $code = $validated['code'] ?? $this->generateUniqueCode('ventes', 'code', 'VEN');
 
                 /** @var ventes $vente */
@@ -204,7 +273,18 @@ class VenteController extends ApiCrudController
                     ]);
                 }
 
-                return $vente->fresh(['client', 'vendeur', 'lignes.produit', 'lignes.devise']);
+                foreach ($payments as $payment) {
+                    $this->recordCashMovement(
+                        (int) $payment['devise_id'],
+                        'entree',
+                        (float) $payment['montant'],
+                        'vente',
+                        $vente->id,
+                        'Paiement de la vente #' . $vente->code,
+                    );
+                }
+
+                return $vente->fresh(['client', 'vendeur', 'lignes.produit', 'lignes.devise', 'transactionsCaisses.caisse.devise']);
             });
 
             $this->notifySaleAction('created', $created);
@@ -220,7 +300,7 @@ class VenteController extends ApiCrudController
                             'id_produit' => (int) $item['id_produit'],
                             'demande' => (int) $item['quantite'],
                         ], $lineItems),
-                        'created_by' => (int) auth()->id(),
+                        'created_by' => (int) (auth()->user()?->id ?? 0),
                         'created_by_name' => auth()->user()?->nom ?? auth()->user()?->email ?? 'Système',
                     ]));
                 }
@@ -248,7 +328,7 @@ class VenteController extends ApiCrudController
         $validated = $request->validate($this->updateRules($vente));
         $vente->update($validated);
 
-        $freshVente = $vente->fresh(['client', 'vendeur', 'lignes.produit', 'lignes.devise']);
+        $freshVente = $vente->fresh(['client', 'vendeur', 'lignes.produit', 'lignes.devise', 'transactionsCaisses.caisse.devise']);
         $this->notifySaleAction('updated', $freshVente);
 
         return response()->json([
@@ -259,13 +339,72 @@ class VenteController extends ApiCrudController
 
     public function destroy(int $id): JsonResponse
     {
-        if ($response = $this->ensureVendorUser()) {
-            return $response;
+        if (! $this->canCancelSale()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Vous n\'êtes pas autorisé à annuler cette vente.',
+            ], 403);
         }
 
-        $vente = ventes::findOrFail($id);
-        $this->notifySaleAction('deleted', $vente);
-        $vente->delete();
+        try {
+            $vente = DB::transaction(function () use ($id) {
+                /** @var ventes $vente */
+                $vente = ventes::with(['lignes', 'retours'])->findOrFail($id);
+
+                if ($vente->retours()->exists()) {
+                    throw new \RuntimeException('Cette vente contient déjà un retour et ne peut pas être annulée.');
+                }
+
+                $lineIds = $vente->lignes->pluck('id')->all();
+                $cashTransactions = transactions_caisses::query()
+                    ->where('reference_type', 'vente')
+                    ->where('reference_id', $vente->id)
+                    ->orderByDesc('id')
+                    ->lockForUpdate()
+                    ->get();
+
+                foreach ($cashTransactions as $transaction) {
+                    $caisse = caisse::query()
+                        ->where('id', $transaction->id_caisse)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (! $caisse) {
+                        throw new \RuntimeException('Caisse introuvable pour rétablir la vente.');
+                    }
+
+                    $montant = $this->decimalValue($transaction->montant);
+                    $soldeActuel = $this->decimalValue($caisse->solde);
+                    $soldeApresAnnulation = $transaction->type === 'entree'
+                        ? $soldeActuel->minus($montant)
+                        : $soldeActuel->plus($montant);
+
+                    $caisse->update(['solde' => $this->formatDecimal($soldeApresAnnulation)]);
+                    $transaction->delete();
+                }
+
+                if ($lineIds !== []) {
+                    DB::table('mouvements_stock_fifos')
+                        ->whereIn('id_ligne_vente', $lineIds)
+                        ->delete();
+
+                    ligne_ventes::query()
+                        ->where('id_vente', $vente->id)
+                        ->delete();
+                }
+
+                $vente->delete();
+
+                return $vente;
+            });
+
+            $this->notifySaleAction('deleted', $vente);
+        } catch (\RuntimeException $exception) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
 
         return response()->json([
             'status' => 'success',
