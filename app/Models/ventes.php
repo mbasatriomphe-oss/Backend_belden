@@ -16,10 +16,18 @@ class ventes extends Model
         'date',
         'id_vendeur',
         'id_client',
+        'devise_vente_id',
+        'montant_total',
+        'montant_paye',
+        'reste_a_payer',
+        'statut_paiement',
     ];
 
     protected $casts = [
         'date' => 'date',
+        'montant_total' => 'decimal:8',
+        'montant_paye' => 'decimal:8',
+        'reste_a_payer' => 'decimal:8',
     ];
 
     public function vendeur()
@@ -30,6 +38,11 @@ class ventes extends Model
     public function client()
     {
         return $this->belongsTo(clients::class, 'id_client');
+    }
+
+    public function deviseVente()
+    {
+        return $this->belongsTo(devise::class, 'devise_vente_id');
     }
 
     public function lignes()

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Taux;
 use App\Models\ventes;
 use App\Models\ligne_ventes;
 use App\Models\caisse;
@@ -99,9 +100,98 @@ class VenteController extends ApiCrudController
         return $value->toScale(8, RoundingMode::HALF_UP)->__toString();
     }
 
+    private function resolveTauxToCurrency(int $sourceCurrencyId, int $targetCurrencyId, string $date): ?BigDecimal
+    {
+        if ($sourceCurrencyId === $targetCurrencyId) {
+            return BigDecimal::of('1');
+        }
+
+        $directRate = Taux::query()
+            ->where('statut', 'actif')
+            ->where('devise_source', $sourceCurrencyId)
+            ->where('devise_but', $targetCurrencyId)
+            ->whereDate('date_effet', '<=', $date)
+            ->orderByDesc('date_effet')
+            ->orderByDesc('id')
+            ->value('valeur');
+
+        if ($directRate !== null) {
+            return BigDecimal::of((string) $directRate);
+        }
+
+        $reverseRate = Taux::query()
+            ->where('statut', 'actif')
+            ->where('devise_source', $targetCurrencyId)
+            ->where('devise_but', $sourceCurrencyId)
+            ->whereDate('date_effet', '<=', $date)
+            ->orderByDesc('date_effet')
+            ->orderByDesc('id')
+            ->value('valeur');
+
+        if ($reverseRate === null || (float) $reverseRate <= 0) {
+            return null;
+        }
+
+        return BigDecimal::of('1')->dividedBy(BigDecimal::of((string) $reverseRate), 8, RoundingMode::HALF_UP);
+    }
+
+    private function calculatePaymentSummary(array $validated, array $lineItems, array $payments): array
+    {
+        $saleCurrencyId = (int) ($validated['devise_vente_id'] ?? ($lineItems[0]['id_devise'] ?? 0));
+        $saleDate = (string) $validated['date'];
+
+        $total = BigDecimal::of('0');
+
+        foreach ($lineItems as $item) {
+            $lineCurrencyId = (int) ($item['id_devise'] ?? 0);
+            $lineAmount = BigDecimal::of((string) $item['prix_vente'])->multipliedBy(BigDecimal::of((string) $item['quantite']));
+
+            $rate = $this->resolveTauxToCurrency($lineCurrencyId, $saleCurrencyId, $saleDate);
+
+            if (! $rate) {
+                throw new \RuntimeException('Impossible de convertir une ligne de vente vers la devise de vente. Vérifie les taux actifs.');
+            }
+
+            $total = $total->plus($lineAmount->multipliedBy($rate));
+        }
+
+        $paid = BigDecimal::of('0');
+
+        foreach ($payments as $payment) {
+            $paymentCurrencyId = (int) $payment['devise_id'];
+            $paymentAmount = BigDecimal::of((string) $payment['montant']);
+            $rate = $this->resolveTauxToCurrency($paymentCurrencyId, $saleCurrencyId, $saleDate);
+
+            if (! $rate) {
+                throw new \RuntimeException('Impossible de convertir un paiement vers la devise de vente. Vérifie les taux actifs.');
+            }
+
+            $paid = $paid->plus($paymentAmount->multipliedBy($rate));
+        }
+
+        $remaining = $total->minus($paid);
+
+        if ($remaining->isLessThan(BigDecimal::of('0'))) {
+            $remaining = BigDecimal::of('0');
+        }
+
+        return [
+            'devise_vente_id' => $saleCurrencyId,
+            'montant_total' => $this->formatDecimal($total),
+            'montant_paye' => $this->formatDecimal($paid),
+            'reste_a_payer' => $this->formatDecimal($remaining),
+            'statut_paiement' => $remaining->isGreaterThan(BigDecimal::of('0')) ? 'partielle' : 'payee',
+        ];
+    }
+
     protected function indexQuery(Request $request): Builder
     {
-        $query = ventes::with(['vendeur', 'client', 'lignes.produit', 'lignes.devise', 'transactionsCaisses.caisse.devise']);
+        $query = ventes::with(['vendeur', 'client', 'deviseVente', 'lignes.produit', 'lignes.devise', 'transactionsCaisses.caisse.devise']);
+        $user = $request->user();
+
+        if (($user?->role ?? null) === 'vendeur') {
+            $query->where('id_vendeur', (int) $user->id);
+        }
 
         if ($request->filled('id_vendeur')) {
             $query->where('id_vendeur', $request->integer('id_vendeur'));
@@ -115,7 +205,55 @@ class VenteController extends ApiCrudController
             $query->whereDate('date', $request->date('date'));
         }
 
+        if ($request->filled('payment_status')) {
+            $paymentStatus = $request->string('payment_status')->toString();
+
+            if ($paymentStatus === 'due') {
+                $query->where('reste_a_payer', '>', 0);
+            } elseif ($paymentStatus === 'paid') {
+                $query->where('reste_a_payer', '<=', 0);
+            } elseif ($paymentStatus === 'partial') {
+                $query->where('statut_paiement', 'partielle');
+            }
+        }
+        $period = strtolower((string) $request->query('period', ''));
+
+        if ($period === 'daily') {
+            $query->whereDate('created_at', $request->filled('date') ? $request->date('date') : now()->toDateString());
+        } elseif ($period === 'monthly') {
+            $month = (string) $request->query('month', now()->format('Y-m'));
+
+            if (preg_match('/^\d{4}-\d{2}$/', $month) === 1) {
+                [$year, $monthNumber] = array_map('intval', explode('-', $month, 2));
+                $query->whereYear('created_at', $year)->whereMonth('created_at', $monthNumber);
+            }
+        }
+
         return $query;
+    }
+
+    private function cancellationBlockedReason(ventes $vente): ?string
+    {
+        $user = auth()->user();
+        $role = $user?->role ?? null;
+
+        if ($role === 'admin') {
+            return null;
+        }
+
+        if ($role !== 'vendeur') {
+            return 'Vous n\'êtes pas autorisé à annuler cette vente.';
+        }
+
+        if ((int) ($vente->id_vendeur ?? 0) !== (int) ($user?->id ?? 0)) {
+            return 'Vous ne pouvez annuler que vos propres ventes.';
+        }
+
+        if (! $vente->created_at || $vente->created_at->diffInMinutes(now()) > 60) {
+            return 'Une vente ne peut être annulée que dans l\'heure qui suit sa création.';
+        }
+
+        return null;
     }
 
     protected function storeRules(): array
@@ -125,6 +263,7 @@ class VenteController extends ApiCrudController
             'date'                    => 'required|date',
             'id_vendeur'              => 'required|integer|exists:vendeurs,id',
             'id_client'               => 'required|integer|exists:clients,id',
+            'devise_vente_id'         => 'nullable|integer|exists:devises,id',
             'paiements'               => 'required|array|min:1',
             'paiements.*.devise_id'   => 'required|integer|exists:devises,id',
             'paiements.*.montant'     => 'required|numeric|min:0.01',
@@ -253,6 +392,7 @@ class VenteController extends ApiCrudController
 
         try {
             $created = DB::transaction(function () use ($validated, $lineItems, $payments) {
+                $paymentSummary = $this->calculatePaymentSummary($validated, $lineItems, $payments);
                 $code = $validated['code'] ?? $this->generateUniqueCode('ventes', 'code', 'VEN');
 
                 /** @var ventes $vente */
@@ -261,6 +401,11 @@ class VenteController extends ApiCrudController
                     'date'       => $validated['date'],
                     'id_vendeur' => (int) $validated['id_vendeur'],
                     'id_client'  => (int) $validated['id_client'],
+                    'devise_vente_id' => $paymentSummary['devise_vente_id'],
+                    'montant_total' => $paymentSummary['montant_total'],
+                    'montant_paye' => $paymentSummary['montant_paye'],
+                    'reste_a_payer' => $paymentSummary['reste_a_payer'],
+                    'statut_paiement' => $paymentSummary['statut_paiement'],
                 ]);
 
                 foreach ($lineItems as $item) {
@@ -284,7 +429,7 @@ class VenteController extends ApiCrudController
                     );
                 }
 
-                return $vente->fresh(['client', 'vendeur', 'lignes.produit', 'lignes.devise', 'transactionsCaisses.caisse.devise']);
+                return $vente->fresh(['client', 'vendeur', 'deviseVente', 'lignes.produit', 'lignes.devise', 'transactionsCaisses.caisse.devise']);
             });
 
             $this->notifySaleAction('created', $created);
@@ -328,7 +473,7 @@ class VenteController extends ApiCrudController
         $validated = $request->validate($this->updateRules($vente));
         $vente->update($validated);
 
-        $freshVente = $vente->fresh(['client', 'vendeur', 'lignes.produit', 'lignes.devise', 'transactionsCaisses.caisse.devise']);
+        $freshVente = $vente->fresh(['client', 'vendeur', 'deviseVente', 'lignes.produit', 'lignes.devise', 'transactionsCaisses.caisse.devise']);
         $this->notifySaleAction('updated', $freshVente);
 
         return response()->json([
@@ -339,18 +484,18 @@ class VenteController extends ApiCrudController
 
     public function destroy(int $id): JsonResponse
     {
-        if (! $this->canCancelSale()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Vous n\'êtes pas autorisé à annuler cette vente.',
-            ], 403);
-        }
-
         try {
-            $vente = DB::transaction(function () use ($id) {
-                /** @var ventes $vente */
-                $vente = ventes::with(['lignes', 'retours'])->findOrFail($id);
+            $vente = ventes::with(['lignes', 'retours', 'vendeur'])->findOrFail($id);
 
+            if ($reason = $this->cancellationBlockedReason($vente)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $reason,
+                ], 422);
+            }
+
+            $vente = DB::transaction(function () use ($vente) {
+                /** @var ventes $vente */
                 if ($vente->retours()->exists()) {
                     throw new \RuntimeException('Cette vente contient déjà un retour et ne peut pas être annulée.');
                 }

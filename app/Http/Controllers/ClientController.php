@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\clients;
+use App\Models\ventes;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ClientController extends ApiCrudController
@@ -42,5 +44,28 @@ class ClientController extends ApiCrudController
             'contact'  => 'sometimes|string|max:50',
             'iduser'   => 'nullable|integer|exists:users,id',
         ];
+    }
+
+    public function debts(int $id): JsonResponse
+    {
+        $client = clients::findOrFail($id);
+
+        $debts = ventes::query()
+            ->with(['deviseVente', 'vendeur'])
+            ->where('id_client', $client->id)
+            ->where('reste_a_payer', '>', 0)
+            ->orderByDesc('date')
+            ->orderByDesc('id')
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'client' => $client,
+                'ventes' => $debts,
+                'total_dette' => $debts->sum(fn (ventes $vente) => (float) $vente->reste_a_payer),
+                'nombre_dettes' => $debts->count(),
+            ],
+        ]);
     }
 }
