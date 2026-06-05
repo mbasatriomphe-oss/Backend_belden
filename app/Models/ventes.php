@@ -60,4 +60,28 @@ class ventes extends Model
         return $this->hasMany(transactions_caisses::class, 'reference_id')
             ->where('reference_type', 'vente');
     }
+
+    public function scopePaidInCurrency($query, int $deviseId)
+    {
+        return $query->whereHas('transactionsCaisses', function ($q) use ($deviseId) {
+            $q->whereHas('caisse', function ($c) use ($deviseId) {
+                $c->where('id_devise', $deviseId);
+            });
+        });
+    }
+
+    public function scopePaidInBothCurrencies($query, int $firstDeviseId, int $secondDeviseId)
+    {
+        return $query
+            ->whereHas('transactionsCaisses', function ($q) use ($firstDeviseId) {
+                $q->whereHas('caisse', function ($c) use ($firstDeviseId) {
+                    $c->where('id_devise', $firstDeviseId);
+                });
+            })
+            ->whereHas('transactionsCaisses', function ($q) use ($secondDeviseId) {
+                $q->whereHas('caisse', function ($c) use ($secondDeviseId) {
+                    $c->where('id_devise', $secondDeviseId);
+                });
+            });
+    }
 }

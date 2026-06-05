@@ -55,6 +55,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::middleware(['admin.or.vendeur'])->group(function () {
         Route::apiResource('clients', ClientController::class);
         Route::apiResource('ventes', VenteController::class);
+        Route::post('/ventes/{id}/paiements', [VenteController::class, 'addPayment']);
         Route::apiResource('retours', RetourController::class);
 
         Route::get('/produits', [ProduitController::class, 'index'])->name('produits.index');

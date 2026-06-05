@@ -229,6 +229,30 @@ class VenteController extends ApiCrudController
             }
         }
 
+        // Optional payment currency filter: 'franc', 'dollar', 'both'
+        $paymentFilter = strtolower((string) $request->query('payment_currency', ''));
+        if ($paymentFilter !== '') {
+            $francId = DB::table('devises')->where(function ($q) {
+                $q->whereRaw("lower(code) = 'cdf' OR lower(code) = 'fc'")
+                    ->orWhereRaw("lower(nom) LIKE '%franc%'")
+                    ->orWhere('symbole', 'FC');
+            })->value('id');
+
+            $dollarId = DB::table('devises')->where(function ($q) {
+                $q->whereRaw("lower(code) = 'usd'")
+                    ->orWhereRaw("lower(nom) LIKE '%dollar%'")
+                    ->orWhere('symbole', '$');
+            })->value('id');
+
+            if ($paymentFilter === 'franc' && $francId) {
+                $query->paidInCurrency($francId);
+            } elseif ($paymentFilter === 'dollar' && $dollarId) {
+                $query->paidInCurrency($dollarId);
+            } elseif ($paymentFilter === 'both' && $francId && $dollarId) {
+                $query->paidInBothCurrencies($francId, $dollarId);
+            }
+        }
+
         return $query;
     }
 
@@ -480,6 +504,95 @@ class VenteController extends ApiCrudController
             'status' => 'success',
             'data'   => $freshVente,
         ]);
+    }
+
+    public function addPayment(Request $request, int $id): JsonResponse
+    {
+        if ($response = $this->ensureVendorUser()) {
+            return $response;
+        }
+
+        $rules = [
+            'paiements' => 'required|array|min:1',
+            'paiements.*.devise_id' => 'required|integer|exists:devises,id',
+            'paiements.*.montant' => 'required|numeric|min:0.01',
+        ];
+
+        $validated = $request->validate($rules);
+
+        $vente = ventes::with('lignes')->findOrFail($id);
+
+        $lineItems = array_map(static function ($l) {
+            return [
+                'id_produit' => (int) $l['id_produit'],
+                'quantite' => (int) $l['quantite'],
+                'prix_vente' => $l['prix_vente'],
+                'id_devise' => (int) $l['id_devise'],
+            ];
+        }, $vente->lignes->map(function ($l) {
+            return ['id_produit' => $l->id_produit, 'quantite' => $l->quantite, 'prix_vente' => $l->prix_vente, 'id_devise' => $l->id_devise];
+        })->all());
+
+        $payments = $validated['paiements'];
+
+        try {
+            $updated = DB::transaction(function () use ($validated, $lineItems, $payments, $vente) {
+                // Validate that a caisse exists for each payment devise before recording
+                foreach ($payments as $payment) {
+                    $deviseId = (int) $payment['devise_id'];
+                    $caisseExists = caisse::query()->where('id_devise', $deviseId)->exists();
+                    if (! $caisseExists) {
+                        throw new \RuntimeException("Aucune caisse configurée pour la devise id={$deviseId}. Configure une caisse avant d'enregistrer ce paiement.");
+                    }
+                }
+
+                // Record cash movements for each payment
+                foreach ($payments as $payment) {
+                    $this->recordCashMovement(
+                        (int) $payment['devise_id'],
+                        'entree',
+                        (float) $payment['montant'],
+                        'vente',
+                        $vente->id,
+                        'Paiement (complément) de la vente #' . $vente->code,
+                    );
+                }
+
+                // Recalculate payment summary
+                $validatedContext = ['devise_vente_id' => $vente->devise_vente_id, 'date' => $vente->date->toDateString()];
+                $summary = $this->calculatePaymentSummary($validatedContext, $lineItems, array_merge($this->collectExistingPayments($vente->id), $payments));
+
+                $vente->update([
+                    'montant_total' => $summary['montant_total'],
+                    'montant_paye' => $summary['montant_paye'],
+                    'reste_a_payer' => $summary['reste_a_payer'],
+                    'statut_paiement' => $summary['statut_paiement'],
+                ]);
+
+                return $vente->fresh(['client', 'vendeur', 'deviseVente', 'lignes.produit', 'lignes.devise', 'transactionsCaisses.caisse.devise']);
+            });
+
+            $this->notifySaleAction('updated', $updated);
+
+            return response()->json(['status' => 'success', 'data' => $updated], 200);
+        } catch (QueryException|\RuntimeException $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
+        }
+    }
+
+    private function collectExistingPayments(int $venteId): array
+    {
+        $rows = transactions_caisses::query()
+            ->where('reference_type', 'vente')
+            ->where('reference_id', $venteId)
+            ->get()
+            ->map(function ($t) {
+                return ['devise_id' => $t->caisse?->id_devise ?? null, 'montant' => $t->montant];
+            })
+            ->filter(function ($p) { return !empty($p['devise_id']); })
+            ->all();
+
+        return $rows;
     }
 
     public function destroy(int $id): JsonResponse
