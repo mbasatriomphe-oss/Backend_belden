@@ -90,7 +90,20 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('produits', ProduitController::class)->except(['index', 'show']);
         Route::apiResource('fournisseurs', FournisseurController::class);
         Route::apiResource('approvisionnements', ApprovisionnementController::class);
-        Route::apiResource('ligne-approvisionnements', LigneApprovisionnementController::class);
+        
+        // Routes pour les lignes d'approvisionnement (CRUD de base)
+        // Note: Le nom de la route doit correspondre à l'URL appelée par le frontend
+        // Le frontend appelle "/lignes-approvisionnements" (avec un 's')
+        Route::apiResource('lignes-approvisionnements', LigneApprovisionnementController::class);
+        
+        // ========== NOUVELLES ROUTES POUR LA GESTION DES DEVISES ==========
+        // Route pour mettre à jour la devise d'une ligne d'approvisionnement
+        Route::put('/lignes-approvisionnements/{id}/devise', [LigneApprovisionnementController::class, 'updateDevise']);
+        
+        // Route pour mettre à jour plusieurs lignes en une seule requête
+        Route::post('/lignes-approvisionnements/batch/devise', [LigneApprovisionnementController::class, 'batchUpdateDevise']);
+        
+        // Routes existantes
         Route::apiResource('ligne-ventes', LigneVenteController::class);
         Route::apiResource('ligne-retours', LigneRetourController::class);
         Route::apiResource('caisses', CaisseController::class);
