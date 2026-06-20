@@ -21,6 +21,8 @@ use App\Http\Controllers\MouvementStockFifoController;
 use App\Http\Controllers\TransactionCaisseController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\RapportController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TauxController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -46,6 +48,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/user', function(Request $request) {
         return $request->user();
     });
+
+// Public signed routes (no auth) - accessible only with a valid temporary signature
+Route::get('/rapports/stock/public', [\App\Http\Controllers\ReportController::class, 'stockHtmlPublic'])->name('rapports.stock.public')->middleware('signed');
+Route::get('/rapports/ventes/public', [\App\Http\Controllers\ReportController::class, 'ventesHtmlPublic'])->name('rapports.ventes.public')->middleware('signed');
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/unread', [NotificationController::class, 'unread'])->name('notifications.unread');
@@ -120,11 +126,36 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/rapports/recap-journalier', [RapportController::class, 'recapJournalier'])->name('rapports.recap-journalier');
         Route::get('/rapports/etat-caisses', [RapportController::class, 'etatCaisses'])->name('rapports.etat-caisses');
         Route::get('/rapports/chiffre-affaires', [RapportController::class, 'chiffreAffaires'])->name('rapports.chiffre-affaires');
+        Route::get('/rapports/benefice-periode', [RapportController::class, 'beneficePeriod'])->name('rapports.benefice-periode');
+        Route::get('/rapports/benefice-produit', [RapportController::class, 'beneficeProduit'])->name('rapports.benefice-produit');
         Route::get('/rapports/top-produits', [RapportController::class, 'topProduits'])->name('rapports.top-produits');
         Route::get('/rapports/lots-expiration', [RapportController::class, 'lotsExpiration'])->name('rapports.lots-expiration');
         Route::get('/rapports/marge-produit', [RapportController::class, 'margeProduit'])->name('rapports.marge-produit');
         Route::get('/rapports/mouvements-caisse', [RapportController::class, 'mouvementsCaisse'])->name('rapports.mouvements-caisse');
+        Route::get('/rapports/ventes/pdf', [ReportController::class, 'ventesPdf'])->name('rapports.ventes.pdf');
+        Route::get('/rapports/stock/pdf', [ReportController::class, 'stockPdf'])->name('rapports.stock.pdf');
+        // HTML fallbacks (do not require PDF library)
+        Route::get('/rapports/ventes/html', [ReportController::class, 'ventesHtml'])->name('rapports.ventes.html');
+        Route::get('/rapports/stock/html', [ReportController::class, 'stockHtml'])->name('rapports.stock.html');
+        // Signed URL generator (authenticated) - returns a temporary public URL usable in a new tab
+        Route::post('/rapports/stock/signed', [ReportController::class, 'stockSigned'])->name('rapports.stock.signed');
+        Route::post('/rapports/ventes/signed', [ReportController::class, 'ventesSigned'])->name('rapports.ventes.signed');
         Route::apiResource('taux', TauxController::class);
+        // Ajoutez ces routes dans votre fichier routes/api.php à l'intérieur du middleware admin
+
+        // Paramètres de la boutique
+        Route::prefix('parametres')->group(function () {
+            Route::get('/boutique', [SettingsController::class, 'getStoreInfo']);
+            Route::put('/boutique', [SettingsController::class, 'updateStoreInfo']);
+            Route::get('/horaires', [SettingsController::class, 'getStoreHours']);
+            Route::put('/horaires', [SettingsController::class, 'updateStoreHours']);
+            Route::get('/alertes', [SettingsController::class, 'getAlertSettings']);
+            Route::put('/alertes', [SettingsController::class, 'updateAlertSettings']);
+            Route::get('/facturation', [SettingsController::class, 'getInvoiceSettings']);
+            Route::put('/facturation', [SettingsController::class, 'updateInvoiceSettings']);
+            Route::get('/apparence', [SettingsController::class, 'getAppearance']);
+            Route::put('/apparence', [SettingsController::class, 'updateAppearance']);
+        });
         
         // Routes d'écriture pour les unités (CRUD)
         Route::prefix('unites')->group(function () {

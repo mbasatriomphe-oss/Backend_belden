@@ -72,7 +72,6 @@ return new class extends Migration
             INNER JOIN ligne_ventes lv ON lv.id_vente = v.id
             INNER JOIN devises d ON d.id = lv.id_devise
             GROUP BY DATE(v.date), MONTH(v.date), YEAR(v.date), d.code
-            ORDER BY v.date DESC
         ');
         
         // Vue 4: Top produits vendus
@@ -90,7 +89,6 @@ return new class extends Migration
             INNER JOIN ligne_ventes lv ON lv.id_produit = p.id
             INNER JOIN categories c ON c.id = p.categorie_id
             GROUP BY p.id, p.code, p.nom, c.nom
-            ORDER BY chiffre_affaires DESC
             LIMIT 100
         ');
         
@@ -119,7 +117,6 @@ return new class extends Migration
             FROM lots l
             INNER JOIN produits p ON p.id = l.id_produit
             HAVING quantite_restante > 0
-            ORDER BY l.date_expiration ASC
         ');
         
         // Vue 6: Marge bénéficiaire par produit
@@ -139,7 +136,6 @@ return new class extends Migration
             INNER JOIN ligne_approvisionnements la ON la.id = l.id_ligne_approvisionnement
             GROUP BY p.id, p.code, p.nom
             HAVING marge_pourcentage IS NOT NULL
-            ORDER BY marge_pourcentage DESC
         ');
         
         // Vue 7: Historique des mouvements de caisse
@@ -162,7 +158,6 @@ return new class extends Migration
             INNER JOIN caisses c ON c.id = tc.id_caisse
             INNER JOIN devises d ON d.id = c.id_devise
             LEFT JOIN users u ON u.id = tc.created_by
-            ORDER BY tc.created_at DESC
         ');
         
         // Vue 8: Récapitulatif journalier

@@ -201,8 +201,20 @@ class VenteController extends ApiCrudController
             $query->where('id_client', $request->integer('id_client'));
         }
 
+        // Support both single date and date ranges (date / start & end)
         if ($request->filled('date')) {
             $query->whereDate('date', $request->date('date'));
+        } else {
+            $start = $request->query('date_debut') ?? $request->query('start');
+            $end = $request->query('date_fin') ?? $request->query('end');
+
+            if ($start) {
+                $query->whereDate('date', '>=', $start);
+            }
+
+            if ($end) {
+                $query->whereDate('date', '<=', $end);
+            }
         }
 
         if ($request->filled('payment_status')) {
