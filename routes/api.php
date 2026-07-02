@@ -134,9 +134,13 @@ Route::get('/rapports/ventes/public', [\App\Http\Controllers\ReportController::c
         Route::get('/rapports/mouvements-caisse', [RapportController::class, 'mouvementsCaisse'])->name('rapports.mouvements-caisse');
         Route::get('/rapports/ventes/pdf', [ReportController::class, 'ventesPdf'])->name('rapports.ventes.pdf');
         Route::get('/rapports/stock/pdf', [ReportController::class, 'stockPdf'])->name('rapports.stock.pdf');
+        Route::get('/rapports/stock-fifo/pdf', [ReportController::class, 'stockFifoPdf'])->name('rapports.stock-fifo.pdf');
         // HTML fallbacks (do not require PDF library)
         Route::get('/rapports/ventes/html', [ReportController::class, 'ventesHtml'])->name('rapports.ventes.html');
         Route::get('/rapports/stock/html', [ReportController::class, 'stockHtml'])->name('rapports.stock.html');
+        Route::get('/rapports/stock-fifo/html', [ReportController::class, 'stockFifoHtml'])->name('rapports.stock-fifo.html');
+        // Accept posted HTML and render server-side to PDF
+        Route::post('/rapports/html-to-pdf', [ReportController::class, 'htmlToPdf'])->name('rapports.html-to-pdf');
         // Signed URL generator (authenticated) - returns a temporary public URL usable in a new tab
         Route::post('/rapports/stock/signed', [ReportController::class, 'stockSigned'])->name('rapports.stock.signed');
         Route::post('/rapports/ventes/signed', [ReportController::class, 'ventesSigned'])->name('rapports.ventes.signed');

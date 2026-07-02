@@ -1,25 +1,6 @@
-<!doctype html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Rapport Stock</title>
-    <style>
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #444; padding: 6px; font-size: 12px; }
-        th { background: #eee; }
-    </style>
-</head>
-<body>
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div>
-            <h2>{{ config('app.name', 'Belden') }}</h2>
-            <div>Généré le: {{ date('Y-m-d H:i') }}</div>
-        </div>
-        <div>
-            <img src="{{ asset('logo.png') }}" alt="logo" style="height:50px;object-fit:contain" onerror="this.style.display='none'" />
-        </div>
-    </div>
+@extends('reports.layout')
 
+@section('content')
     @php
         $totalValue = 0;
         foreach($produits as $p) {
@@ -30,8 +11,11 @@
         }
     @endphp
 
-    <h1>Rapport - Stock</h1>
-    <div style="margin:8px 0"><strong>Valeur totale stock:</strong> {{ number_format($totalValue, 2) }}</div>
+    <div class="report-title"><h1>Rapport - Stock</h1></div>
+    <div class="report-summary">
+        <div class="summary-item"><strong>Produits</strong><div class="muted">{{ count($produits) }}</div></div>
+        <div class="summary-item"><strong>Valeur stock</strong><div class="muted">{{ number_format($totalValue, 2) }}</div></div>
+    </div>
 
     <table>
         <thead>
@@ -39,7 +23,8 @@
             @php $first = (array) $produits->first(); @endphp
             <tr>
                 @foreach(array_keys($first) as $col)
-                    <th>{{ $col }}</th>
+                    @php $isNumeric = preg_match('/(quantite|qte|stock|prix|valeur|cost|montant)/i', $col) ? 'numeric' : '' ; @endphp
+                    <th class="{{ $isNumeric }}">{{ ucfirst(str_replace('_', ' ', $col)) }}</th>
                 @endforeach
             </tr>
         @else
@@ -50,12 +35,15 @@
         @foreach($produits as $p)
             @php $row = (array) $p; @endphp
             <tr>
-                @foreach($row as $cell)
-                    <td>{{ $cell }}</td>
+                @foreach($row as $k => $cell)
+                    @php $isNumeric = preg_match('/(quantite|qte|stock|prix|valeur|cost|montant)/i', $k);
+                        $display = $cell;
+                        if ($isNumeric && is_numeric($cell)) { $display = number_format($cell, 2); }
+                    @endphp
+                    <td class="{{ $isNumeric ? 'numeric' : '' }}">{{ $display }}</td>
                 @endforeach
             </tr>
         @endforeach
         </tbody>
     </table>
-</body>
-</html>
+@endsection
