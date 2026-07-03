@@ -33,6 +33,7 @@ class LigneApprovisionnementController extends ApiCrudController
             'prix_unitaire' => 'required|numeric|min:0',
             'prix_vente' => 'nullable|numeric|min:0',
             'id_devise' => 'required|integer|exists:devises,id',
+            'paye_par_caisse' => 'sometimes|boolean',
         ];
     }
 
@@ -45,6 +46,7 @@ class LigneApprovisionnementController extends ApiCrudController
             'prix_unitaire' => 'sometimes|numeric|min:0',
             'prix_vente' => 'nullable|numeric|min:0',
             'id_devise' => 'sometimes|integer|exists:devises,id',
+            'paye_par_caisse' => 'sometimes|boolean',
         ];
     }
 

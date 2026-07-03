@@ -200,6 +200,29 @@ class TauxController extends ApiCrudController
             $taux = $query->first();
 
             if (! $taux) {
+                $inverseTaux = Taux::with(['deviseSource', 'deviseBut'])
+                    ->where('statut', 'actif')
+                    ->when(! empty($validated['date']), fn ($query) => $query->whereDate('date_effet', '<=', $validated['date']))
+                    ->where('devise_source', $validated['devise_but'])
+                    ->where('devise_but', $validated['devise_source'])
+                    ->orderByDesc('date_effet')
+                    ->orderByDesc('id')
+                    ->first();
+
+                if ($inverseTaux) {
+                    return response()->json([
+                        'status' => 'success',
+                        'data' => $this->transformTaux($inverseTaux, [
+                            'devise_source' => (int) $validated['devise_source'],
+                            'devise_but' => (int) $validated['devise_but'],
+                            'valeur' => $this->formatDecimal($this->calculateInverseValue($inverseTaux->valeur)),
+                            'valeur_inverse' => $this->formatDecimal($inverseTaux->valeur),
+                            'devise_source_info' => $inverseTaux->deviseBut?->toArray(),
+                            'devise_but_info' => $inverseTaux->deviseSource?->toArray(),
+                        ]),
+                    ]);
+                }
+
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Aucun taux actif trouvé pour ce couple de devises à cette date.',
@@ -218,7 +241,7 @@ class TauxController extends ApiCrudController
         ]);
     }
 
-    private function transformTaux(Taux $taux): array
+    private function transformTaux(Taux $taux, array $overrides = []): array
     {
         $payload = $taux->toArray();
         $payload['valeur'] = $this->formatDecimal($taux->valeur);
@@ -231,6 +254,10 @@ class TauxController extends ApiCrudController
         $payload['devise_source_info'] = $taux->deviseSource?->toArray();
         $payload['devise_but_info']    = $taux->deviseBut?->toArray();
         unset($payload['devise_source_relation'], $payload['devise_but_relation']);
+
+        foreach ($overrides as $key => $value) {
+            $payload[$key] = $value;
+        }
 
         return $payload;
     }

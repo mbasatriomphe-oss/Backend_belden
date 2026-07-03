@@ -18,11 +18,13 @@ class ligne_approvisionnements extends Model
         'prix_unitaire',
         'prix_vente',
         'id_devise',
+        'paye_par_caisse',
     ];
 
     protected $casts = [
         'prix_unitaire' => 'decimal:8',
         'prix_vente' => 'decimal:8',
+        'paye_par_caisse' => 'boolean',
     ];
 
     public function approvisionnement()

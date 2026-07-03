@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\approvisionnements;
+use App\Models\caisse;
 use App\Models\ligne_approvisionnements;
 use App\Models\lots;
 use App\Models\mouvements_stock_fifos;
@@ -50,6 +51,7 @@ class ApprovisionnementController extends ApiCrudController
             'lignes.*.prix_unitaire' => 'required|numeric|min:0',
             'lignes.*.prix_vente' => 'nullable|numeric|min:0',
             'lignes.*.id_devise' => 'required|integer|exists:devises,id',
+            'lignes.*.paye_par_caisse' => 'sometimes|boolean',
         ];
     }
 
@@ -78,6 +80,39 @@ class ApprovisionnementController extends ApiCrudController
 
         $lineItems = $validated['lignes'];
         $productIds = array_map(static fn (array $line) => (int) $line['id_produit'], $lineItems);
+
+        $debitTotalsByDevise = [];
+        foreach ($lineItems as $lineItem) {
+            if (! empty($lineItem['paye_par_caisse'])) {
+                $deviseId = (int) $lineItem['id_devise'];
+                $montant = (float) $lineItem['quantite'] * (float) $lineItem['prix_unitaire'];
+                $debitTotalsByDevise[$deviseId] = ($debitTotalsByDevise[$deviseId] ?? 0.0) + $montant;
+            }
+        }
+
+        if (! empty($debitTotalsByDevise)) {
+            $caisses = caisse::query()
+                ->whereIn('id_devise', array_keys($debitTotalsByDevise))
+                ->get()
+                ->keyBy('id_devise');
+
+            foreach ($debitTotalsByDevise as $deviseId => $montantTotal) {
+                $caisse = $caisses->get($deviseId);
+                if (! $caisse) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "Aucune caisse configurée pour la devise id={$deviseId}.",
+                    ], 422);
+                }
+
+                if ((float) $caisse->solde < $montantTotal) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "Solde insuffisant dans la caisse pour la devise id={$deviseId}.",
+                    ], 422);
+                }
+            }
+        }
 
         if (count($productIds) !== count(array_unique($productIds))) {
             return response()->json([
@@ -112,6 +147,7 @@ class ApprovisionnementController extends ApiCrudController
                     'prix_unitaire' => $lineItem['prix_unitaire'],
                     'prix_vente' => $lineItem['prix_vente'] ?? null,
                     'id_devise' => (int) $lineItem['id_devise'],
+                    'paye_par_caisse' => isset($lineItem['paye_par_caisse']) ? (bool) $lineItem['paye_par_caisse'] : false,
                 ]);
 
                 if ($driver === 'sqlite') {
