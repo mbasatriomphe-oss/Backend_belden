@@ -21,6 +21,9 @@ class ventes extends Model
         'montant_paye',
         'reste_a_payer',
         'statut_paiement',
+        'mode_paiement',
+        'paiement_en_ligne',
+        'frais_transaction',
     ];
 
     protected $casts = [
@@ -28,6 +31,8 @@ class ventes extends Model
         'montant_total' => 'decimal:8',
         'montant_paye' => 'decimal:8',
         'reste_a_payer' => 'decimal:8',
+        'paiement_en_ligne' => 'boolean',
+        'frais_transaction' => 'decimal:8',
     ];
 
     public function vendeur()

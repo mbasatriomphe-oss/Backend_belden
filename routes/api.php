@@ -12,6 +12,7 @@ use App\Http\Controllers\VendeurController;
 use App\Http\Controllers\ApprovisionnementController;
 use App\Http\Controllers\LigneApprovisionnementController;
 use App\Http\Controllers\VenteController;
+use App\Http\Controllers\MaishaPayController;
 use App\Http\Controllers\LigneVenteController;
 use App\Http\Controllers\LotController;
 use App\Http\Controllers\RetourController;
@@ -36,6 +37,13 @@ Route::post('/login-vendeur', [AuthController::class, 'loginVendeur']);
 
 // Route publique pour créer le premier admin (à désactiver après utilisation)
 Route::post('/register-admin', [AuthController::class, 'registerAdmin']);
+
+// Routes publiques de callback MaishaPay
+Route::get('/maishapay/redirect/{session}', [MaishaPayController::class, 'redirectToMaishaPay'])->name('maishapay.redirect');
+Route::get('/maishapay/success', [MaishaPayController::class, 'success'])->name('maishapay.success');
+Route::get('/maishapay/failure', [MaishaPayController::class, 'failure'])->name('maishapay.failure');
+Route::get('/maishapay/cancel', [MaishaPayController::class, 'cancel'])->name('maishapay.cancel');
+Route::post('/maishapay/webhook', [MaishaPayController::class, 'webhook'])->name('maishapay.webhook');
 
 // ==================== ROUTES PROTÉGÉES PAR AUTHENTIFICATION ====================
 
@@ -62,6 +70,7 @@ Route::get('/rapports/ventes/public', [\App\Http\Controllers\ReportController::c
         Route::apiResource('clients', ClientController::class);
         Route::apiResource('ventes', VenteController::class);
         Route::post('/ventes/{id}/paiements', [VenteController::class, 'addPayment']);
+        Route::post('/maishapay/session', [MaishaPayController::class, 'createSession']);
         Route::apiResource('retours', RetourController::class);
 
         Route::get('/produits', [ProduitController::class, 'index'])->name('produits.index');

@@ -26,7 +26,7 @@ class VenteController extends ApiCrudController
     protected string $modelClass = ventes::class;
     protected array $searchable = ['code'];
 
-    private function ensureVendorUser(): ?JsonResponse
+    protected function ensureVendorUser(): ?JsonResponse
     {
         $user = auth()->user();
         $role = $user->role ?? null;
@@ -41,7 +41,7 @@ class VenteController extends ApiCrudController
         return null;
     }
 
-    private function canCancelSale(): bool
+    protected function canCancelSale(): bool
     {
         $role = auth()->user()?->role ?? null;
 
@@ -100,7 +100,7 @@ class VenteController extends ApiCrudController
         return $value->toScale(8, RoundingMode::HALF_UP)->__toString();
     }
 
-    private function resolveTauxToCurrency(int $sourceCurrencyId, int $targetCurrencyId, string $date): ?BigDecimal
+    protected function resolveTauxToCurrency(int $sourceCurrencyId, int $targetCurrencyId, string $date): ?BigDecimal
     {
         if ($sourceCurrencyId === $targetCurrencyId) {
             return BigDecimal::of('1');
@@ -135,7 +135,7 @@ class VenteController extends ApiCrudController
         return BigDecimal::of('1')->dividedBy(BigDecimal::of((string) $reverseRate), 8, RoundingMode::HALF_UP);
     }
 
-    private function calculatePaymentSummary(array $validated, array $lineItems, array $payments): array
+    protected function calculatePaymentSummary(array $validated, array $lineItems, array $payments): array
     {
         $saleCurrencyId = (int) ($validated['devise_vente_id'] ?? ($lineItems[0]['id_devise'] ?? 0));
         $saleDate = (string) $validated['date'];
@@ -154,6 +154,9 @@ class VenteController extends ApiCrudController
 
             $total = $total->plus($lineAmount->multipliedBy($rate));
         }
+
+        $paymentFee = BigDecimal::of((string) ($validated['frais_transaction'] ?? '0'));
+        $total = $total->plus($paymentFee);
 
         $paid = BigDecimal::of('0');
 
@@ -182,6 +185,55 @@ class VenteController extends ApiCrudController
             'reste_a_payer' => $this->formatDecimal($remaining),
             'statut_paiement' => $remaining->isGreaterThan(BigDecimal::of('0')) ? 'partielle' : 'payee',
         ];
+    }
+
+    public function createSaleFromPayload(array $validated, array $lineItems, array $payments): ventes
+    {
+        return DB::transaction(function () use ($validated, $lineItems, $payments) {
+            $paymentSummary = $this->calculatePaymentSummary($validated, $lineItems, $payments);
+            $code = $validated['code'] ?? $this->generateUniqueCode('ventes', 'code', 'VEN');
+
+            /** @var ventes $vente */
+            $vente = ventes::create([
+                'code'       => $code,
+                'date'       => $validated['date'],
+                'id_vendeur' => (int) $validated['id_vendeur'],
+                'id_client'  => (int) $validated['id_client'],
+                'devise_vente_id' => $paymentSummary['devise_vente_id'],
+                'montant_total' => $paymentSummary['montant_total'],
+                'montant_paye' => $paymentSummary['montant_paye'],
+                'reste_a_payer' => $paymentSummary['reste_a_payer'],
+                'statut_paiement' => $paymentSummary['statut_paiement'],
+                'mode_paiement' => $validated['mode_paiement'] ?? 'cash',
+                'paiement_en_ligne' => $validated['paiement_en_ligne'] ?? false,
+                'frais_transaction' => $validated['frais_transaction'] ?? 0,
+            ]);
+
+            foreach ($lineItems as $item) {
+                ligne_ventes::create([
+                    'id_vente'   => $vente->id,
+                    'id_produit' => (int) $item['id_produit'],
+                    'quantite'   => (int) $item['quantite'],
+                    'prix_vente' => $item['prix_vente'],
+                    'id_devise'  => (int) $item['id_devise'],
+                ]);
+            }
+
+            if (! ($validated['paiement_en_ligne'] ?? false)) {
+                foreach ($payments as $payment) {
+                    $this->recordCashMovement(
+                        (int) $payment['devise_id'],
+                        'entree',
+                        (float) $payment['montant'],
+                        'vente',
+                        $vente->id,
+                        'Paiement de la vente #' . $vente->code,
+                    );
+                }
+            }
+
+            return $vente->fresh(['client', 'vendeur', 'deviseVente', 'lignes.produit', 'lignes.devise', 'transactionsCaisses.caisse.devise']);
+        });
     }
 
     protected function indexQuery(Request $request): Builder
@@ -300,6 +352,9 @@ class VenteController extends ApiCrudController
             'id_vendeur'              => 'required|integer|exists:vendeurs,id',
             'id_client'               => 'required|integer|exists:clients,id',
             'devise_vente_id'         => 'nullable|integer|exists:devises,id',
+            'mode_paiement'           => 'sometimes|string|in:cash,card',
+            'paiement_en_ligne'       => 'sometimes|boolean',
+            'frais_transaction'       => 'sometimes|numeric|min:0',
             'paiements'               => 'required|array|min:1',
             'paiements.*.devise_id'   => 'required|integer|exists:devises,id',
             'paiements.*.montant'     => 'required|numeric|min:0.01',
@@ -311,7 +366,7 @@ class VenteController extends ApiCrudController
         ];
     }
 
-    private function recordCashMovement(
+    protected function recordCashMovement(
         int $deviseId,
         string $type,
         float $montant,
@@ -427,46 +482,7 @@ class VenteController extends ApiCrudController
         }
 
         try {
-            $created = DB::transaction(function () use ($validated, $lineItems, $payments) {
-                $paymentSummary = $this->calculatePaymentSummary($validated, $lineItems, $payments);
-                $code = $validated['code'] ?? $this->generateUniqueCode('ventes', 'code', 'VEN');
-
-                /** @var ventes $vente */
-                $vente = ventes::create([
-                    'code'       => $code,
-                    'date'       => $validated['date'],
-                    'id_vendeur' => (int) $validated['id_vendeur'],
-                    'id_client'  => (int) $validated['id_client'],
-                    'devise_vente_id' => $paymentSummary['devise_vente_id'],
-                    'montant_total' => $paymentSummary['montant_total'],
-                    'montant_paye' => $paymentSummary['montant_paye'],
-                    'reste_a_payer' => $paymentSummary['reste_a_payer'],
-                    'statut_paiement' => $paymentSummary['statut_paiement'],
-                ]);
-
-                foreach ($lineItems as $item) {
-                    ligne_ventes::create([
-                        'id_vente'   => $vente->id,
-                        'id_produit' => (int) $item['id_produit'],
-                        'quantite'   => (int) $item['quantite'],
-                        'prix_vente' => $item['prix_vente'],
-                        'id_devise'  => (int) $item['id_devise'],
-                    ]);
-                }
-
-                foreach ($payments as $payment) {
-                    $this->recordCashMovement(
-                        (int) $payment['devise_id'],
-                        'entree',
-                        (float) $payment['montant'],
-                        'vente',
-                        $vente->id,
-                        'Paiement de la vente #' . $vente->code,
-                    );
-                }
-
-                return $vente->fresh(['client', 'vendeur', 'deviseVente', 'lignes.produit', 'lignes.devise', 'transactionsCaisses.caisse.devise']);
-            });
+            $created = $this->createSaleFromPayload($validated, $lineItems, $payments);
 
             $this->notifySaleAction('created', $created);
         } catch (QueryException|\RuntimeException $exception) {
