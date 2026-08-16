@@ -14,6 +14,7 @@ class ligne_retours extends Model
     protected $fillable = [
         'id_retour',
         'id_produit',
+        'id_variante_produit',
         'id_ligne_vente',
         'id_lot',
         'quantite_retournee',

@@ -13,14 +13,17 @@ return new class extends Migration
     {
         Schema::create('produits', function (Blueprint $table) {
             $table->id();
-            // creer les champs pour la table produits avec le champ code ,nom,description,photo,id_unite,id_devise,
             $table->string('code', 50)->unique();
             $table->string('nom', 100);
             $table->text('description')->nullable();
             $table->string('photo')->nullable();
-            $table->unsignedBigInteger('unite_id');
+            $table->unsignedBigInteger('unite_id')->nullable();
             $table->unsignedBigInteger('categorie_id');
-            $table->foreign('unite_id')->references('id')->on('unites');
+            $table->boolean('has_variantes')->default(false);
+            $table->decimal('prix_achat', 20, 8)->nullable();
+            $table->decimal('prix_vente', 20, 8)->nullable();
+            $table->integer('quantite_stock')->nullable();
+            $table->foreign('unite_id')->references('id')->on('unites')->nullOnDelete();
             $table->foreign('categorie_id')->references('id')->on('categories');
             $table->timestamps();
         });

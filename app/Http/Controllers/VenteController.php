@@ -211,11 +211,12 @@ class VenteController extends ApiCrudController
 
             foreach ($lineItems as $item) {
                 ligne_ventes::create([
-                    'id_vente'   => $vente->id,
-                    'id_produit' => (int) $item['id_produit'],
-                    'quantite'   => (int) $item['quantite'],
-                    'prix_vente' => $item['prix_vente'],
-                    'id_devise'  => (int) $item['id_devise'],
+                    'id_vente'             => $vente->id,
+                    'id_produit'           => (int) $item['id_produit'],
+                    'id_variante_produit'  => isset($item['id_variante_produit']) && $item['id_variante_produit'] !== null ? (int) $item['id_variante_produit'] : null,
+                    'quantite'             => (int) $item['quantite'],
+                    'prix_vente'           => $item['prix_vente'],
+                    'id_devise'            => (int) $item['id_devise'],
                 ]);
             }
 
@@ -360,6 +361,7 @@ class VenteController extends ApiCrudController
             'paiements.*.montant'     => 'required|numeric|min:0.01',
             'lignes'                  => 'required|array|min:1',
             'lignes.*.id_produit'     => 'required|integer|exists:produits,id',
+            'lignes.*.id_variante_produit' => 'nullable|integer|exists:variantes_produits,id',
             'lignes.*.quantite'       => 'required|integer|min:1',
             'lignes.*.prix_vente'     => 'required|numeric|min:0',
             'lignes.*.id_devise'      => 'required|integer|exists:devises,id',
@@ -430,31 +432,46 @@ class VenteController extends ApiCrudController
 
         $lineItems   = $validated['lignes'];
         $payments    = $validated['paiements'];
-        $productIds  = array_map(static fn (array $l) => (int) $l['id_produit'], $lineItems);
+        $lineKeys = array_map(static fn (array $line) => sprintf('%d:%s', (int) $line['id_produit'], (string) ($line['id_variante_produit'] ?? 'null')), $lineItems);
 
-        if (count($productIds) !== count(array_unique($productIds))) {
+        if (count($lineKeys) !== count(array_unique($lineKeys))) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Un même produit ne peut apparaître qu\'une seule fois dans la même vente.',
+                'message' => 'Un même produit avec la même variante ne peut apparaître qu\'une seule fois dans la même vente.',
             ], 422);
         }
 
-        $stockRows = DB::table('v_stock_disponible')
-            ->whereIn('id', $productIds)
-            ->get()
-            ->keyBy('id');
+        $stockRows = DB::table('lots as l')
+            ->leftJoin('mouvements_stock_fifos as m', 'm.id_lot', '=', 'l.id')
+            ->select(
+                'l.id_produit',
+                'l.id_variante_produit',
+                DB::raw('COALESCE(SUM(CASE WHEN m.type_mouvement = "entree" THEN m.quantite ELSE 0 END), 0) - COALESCE(SUM(CASE WHEN m.type_mouvement = "sortie" THEN m.quantite ELSE 0 END), 0) as stock_actuel')
+            )
+            ->groupBy('l.id_produit', 'l.id_variante_produit')
+            ->get();
+
+        $stockByKey = [];
+        foreach ($stockRows as $stockRow) {
+            $variantKey = sprintf('%d:%s', (int) $stockRow->id_produit, $stockRow->id_variante_produit !== null ? (string) $stockRow->id_variante_produit : 'null');
+            $stockByKey[$variantKey] = (int) ($stockRow->stock_actuel ?? 0);
+        }
 
         $insufficientItems = [];
         foreach ($lineItems as $item) {
             $productId = (int) $item['id_produit'];
-            $availableStock = (int) ($stockRows->get($productId)?->stock_actuel ?? 0);
+            $variantId = isset($item['id_variante_produit']) && $item['id_variante_produit'] !== null ? (int) $item['id_variante_produit'] : null;
+            $variantKey = sprintf('%d:%s', $productId, $variantId !== null ? (string) $variantId : 'null');
+            $availableStock = (int) ($stockByKey[$variantKey] ?? 0);
             $requestedQuantity = (int) $item['quantite'];
 
             if ($availableStock < $requestedQuantity) {
                 $product = DB::table('produits')->where('id', $productId)->first();
+                $variantLabel = $variantId ? ' (variante #' . $variantId . ')' : '';
                 $insufficientItems[] = [
                     'id_produit' => $productId,
-                    'produit' => $product?->nom ?? $product?->code ?? "Produit #{$productId}",
+                    'id_variante_produit' => $variantId,
+                    'produit' => ($product?->nom ?? $product?->code ?? "Produit #{$productId}") . $variantLabel,
                     'demande' => $requestedQuantity,
                     'disponible' => $availableStock,
                 ];

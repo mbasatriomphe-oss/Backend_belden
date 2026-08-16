@@ -18,11 +18,22 @@ class produits extends Model
         'photo',
         'unite_id',
         'categorie_id',
+        'has_variantes',
+        'prix_achat',
+        'prix_vente',
+        'quantite_stock',
+    ];
+
+    protected $casts = [
+        'has_variantes' => 'boolean',
+        'prix_achat' => 'decimal:8',
+        'prix_vente' => 'decimal:8',
+        'quantite_stock' => 'integer',
     ];
 
     public function unite()
     {
-        return $this->belongsTo(unites::class, 'unite_id');
+        return $this->belongsTo(unites::class, 'unite_id')->withDefault();
     }
 
     public function categorie()
@@ -48,5 +59,30 @@ class produits extends Model
     public function lignesRetour()
     {
         return $this->hasMany(ligne_retours::class, 'id_produit');
+    }
+
+    public function variantes()
+    {
+        return $this->hasMany(VarianteProduit::class, 'produit_id');
+    }
+
+    public function valeursDynamiques()
+    {
+        return $this->hasMany(ValeurProduitDynamique::class, 'produit_id');
+    }
+
+    public function photosProduit()
+    {
+        return $this->hasMany(PhotoProduit::class, 'produit_id');
+    }
+
+    public function isAvecVariantes(): bool
+    {
+        return (bool) $this->has_variantes;
+    }
+
+    public function hasVariantes(): bool
+    {
+        return $this->isAvecVariantes();
     }
 }

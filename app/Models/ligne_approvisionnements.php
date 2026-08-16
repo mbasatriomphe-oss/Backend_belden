@@ -14,6 +14,7 @@ class ligne_approvisionnements extends Model
     protected $fillable = [
         'id_approvisionnement',
         'id_produit',
+        'id_variante_produit',
         'quantite',
         'prix_unitaire',
         'prix_vente',

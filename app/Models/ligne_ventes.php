@@ -14,6 +14,7 @@ class ligne_ventes extends Model
     protected $fillable = [
         'id_vente',
         'id_produit',
+        'id_variante_produit',
         'quantite',
         'prix_vente',
         'id_devise',

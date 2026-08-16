@@ -21,4 +21,9 @@ class categories extends Model
     {
         return $this->hasMany(produits::class, 'categorie_id');
     }
+
+    public function attributsTemplates()
+    {
+        return $this->hasMany(AttributTemplate::class, 'categorie_id');
+    }
 }

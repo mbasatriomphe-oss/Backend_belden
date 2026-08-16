@@ -14,6 +14,7 @@ class lots extends Model
     protected $fillable = [
         'numero_lot',
         'id_produit',
+        'id_variante_produit',
         'id_approvisionnement',
         'id_ligne_approvisionnement',
         'quantite_initial',

@@ -25,6 +25,10 @@ use App\Http\Controllers\RapportController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TauxController;
+use App\Http\Controllers\AttributController;
+use App\Http\Controllers\AttributTemplateController;
+use App\Http\Controllers\ValeurProduitDynamiqueController;
+use App\Http\Controllers\VarianteProduitController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -99,6 +103,10 @@ Route::get('/rapports/ventes/public', [\App\Http\Controllers\ReportController::c
         Route::apiResource('users', UserController::class);
         Route::apiResource('devises', DeviseController::class)->except(['index', 'show']);
         Route::apiResource('categories', CategorieController::class);
+        Route::apiResource('attributs', AttributController::class);
+        Route::apiResource('attributs-templates', AttributTemplateController::class);
+        Route::apiResource('valeurs-produit-dynamiques', ValeurProduitDynamiqueController::class);
+        Route::apiResource('variantes-produits', VarianteProduitController::class);
         Route::post('/vendeurs', [VendeurController::class, 'store'])->name('vendeurs.store');
         Route::put('/vendeurs/{id}', [VendeurController::class, 'update'])->name('vendeurs.update');
         Route::delete('/vendeurs/{id}', [VendeurController::class, 'destroy'])->name('vendeurs.destroy');

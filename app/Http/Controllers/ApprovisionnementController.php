@@ -47,6 +47,7 @@ class ApprovisionnementController extends ApiCrudController
             'id_fournisseur' => 'required|integer|exists:fournisseurs,id',
             'lignes' => 'required|array|min:1',
             'lignes.*.id_produit' => 'required|integer|exists:produits,id',
+            'lignes.*.id_variante_produit' => 'nullable|integer|exists:variantes_produits,id',
             'lignes.*.quantite' => 'required|integer|min:1',
             'lignes.*.prix_unitaire' => 'required|numeric|min:0',
             'lignes.*.prix_vente' => 'nullable|numeric|min:0',
@@ -79,7 +80,7 @@ class ApprovisionnementController extends ApiCrudController
         }
 
         $lineItems = $validated['lignes'];
-        $productIds = array_map(static fn (array $line) => (int) $line['id_produit'], $lineItems);
+        $lineKeys = array_map(static fn (array $line) => sprintf('%d:%s', (int) $line['id_produit'], isset($line['id_variante_produit']) ? (string) $line['id_variante_produit'] : 'null'), $lineItems);
 
         $debitTotalsByDevise = [];
         foreach ($lineItems as $lineItem) {
@@ -114,10 +115,10 @@ class ApprovisionnementController extends ApiCrudController
             }
         }
 
-        if (count($productIds) !== count(array_unique($productIds))) {
+        if (count($lineKeys) !== count(array_unique($lineKeys))) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Chaque produit ne peut apparaître qu\'une seule fois dans le même approvisionnement.',
+                'message' => 'Chaque produit avec la même variante ne peut apparaître qu\'une seule fois dans le même approvisionnement.',
             ], 422);
         }
 
@@ -143,6 +144,7 @@ class ApprovisionnementController extends ApiCrudController
                 $line = ligne_approvisionnements::create([
                     'id_approvisionnement' => $approvisionnement->id,
                     'id_produit' => (int) $lineItem['id_produit'],
+                    'id_variante_produit' => isset($lineItem['id_variante_produit']) ? (int) $lineItem['id_variante_produit'] : null,
                     'quantite' => (int) $lineItem['quantite'],
                     'prix_unitaire' => $lineItem['prix_unitaire'],
                     'prix_vente' => $lineItem['prix_vente'] ?? null,
@@ -154,6 +156,7 @@ class ApprovisionnementController extends ApiCrudController
                     $lot = lots::create([
                         'numero_lot' => $this->generateLotNumber($approvisionnement->date, (int) $lineItem['id_produit']),
                         'id_produit' => (int) $lineItem['id_produit'],
+                        'id_variante_produit' => isset($lineItem['id_variante_produit']) ? (int) $lineItem['id_variante_produit'] : null,
                         'id_approvisionnement' => $approvisionnement->id,
                         'id_ligne_approvisionnement' => $line->id,
                         'quantite_initial' => (int) $lineItem['quantite'],
