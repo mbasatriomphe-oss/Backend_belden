@@ -35,7 +35,7 @@
             </tr>
             <tr>
                 <th>Date</th>
-                <th>Libellé</th>
+                <th>Produit / Variante</th>
                 <th class="numeric">Qtés</th>
                 <th class="numeric">CU</th>
                 <th class="numeric">CT</th>
@@ -53,7 +53,7 @@
             @foreach($rows as $row)
                 <tr>
                     <td>{{ $row['date_reception'] }}</td>
-                    <td>Entrée lot {{ $row['numero_lot'] }}</td>
+                    <td>{{ $row['label_produit'] ?? $row['produit_nom'] }}<br><small>Lot {{ $row['numero_lot'] }}</small></td>
                     <td class="numeric">{{ number_format($row['quantite_entree'] ?? 0,0) }}</td>
                     <td class="numeric">{{ number_format($row['prix_unitaire'] ?? 0,2) }}</td>
                     <td class="numeric">{{ number_format($row['valeur_entree'] ?? 0,2) }}</td>
@@ -69,7 +69,7 @@
                 @if(!empty($row['quantite_sortie']))
                     <tr>
                         <td>{{ $row['dernier_sortie_date'] ?? '—' }}</td>
-                        <td>Sortie lot {{ $row['numero_lot'] }}</td>
+                        <td>{{ $row['label_produit'] ?? $row['produit_nom'] }}<br><small>Lot {{ $row['numero_lot'] }}</small></td>
                         <td class="numeric">—</td>
                         <td class="numeric">—</td>
                         <td class="numeric">—</td>

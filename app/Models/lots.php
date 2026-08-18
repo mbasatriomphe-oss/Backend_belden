@@ -48,6 +48,11 @@ class lots extends Model
         return $this->belongsTo(devise::class, 'id_devise');
     }
 
+    public function variante()
+    {
+        return $this->belongsTo(VarianteProduit::class, 'id_variante_produit');
+    }
+
     public function mouvementsStock()
     {
         return $this->hasMany(mouvements_stock_fifos::class, 'id_lot');

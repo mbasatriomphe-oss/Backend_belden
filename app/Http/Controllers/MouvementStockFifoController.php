@@ -97,8 +97,27 @@ class MouvementStockFifoController extends ApiCrudController
     public function mouvementsParProduit(int $produitId): JsonResponse
     {
         $mouvements = mouvements_stock_fifos::query()
-            ->select('mouvements_stock_fifos.*')
+            ->select(
+                'mouvements_stock_fifos.id',
+                'mouvements_stock_fifos.id_lot',
+                'mouvements_stock_fifos.id_ligne_vente',
+                'mouvements_stock_fifos.id_ligne_retour',
+                'mouvements_stock_fifos.type_mouvement',
+                'mouvements_stock_fifos.quantite',
+                'mouvements_stock_fifos.quantite_restante_avant',
+                'mouvements_stock_fifos.quantite_restante_apres',
+                'mouvements_stock_fifos.date_mouvement',
+                'lots.numero_lot',
+                'lots.id_produit',
+                'lots.id_variante_produit',
+                'produits.nom as produit_nom',
+                'produits.code as produit_code',
+                'vp.code_sku as variante_code',
+                'vp.combinaison as variante_combinaison'
+            )
             ->join('lots', 'lots.id', '=', 'mouvements_stock_fifos.id_lot')
+            ->join('produits', 'produits.id', '=', 'lots.id_produit')
+            ->leftJoin('variantes_produits as vp', 'vp.id', '=', 'lots.id_variante_produit')
             ->where('lots.id_produit', $produitId)
             ->orderByDesc('mouvements_stock_fifos.date_mouvement')
             ->orderByDesc('mouvements_stock_fifos.id')

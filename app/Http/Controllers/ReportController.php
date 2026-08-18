@@ -59,11 +59,15 @@ class ReportController extends BaseController
             ->join('produits as p', 'p.id', '=', 'l.id_produit')
             ->leftJoin('ligne_approvisionnements as la', 'la.id', '=', 'l.id_ligne_approvisionnement')
             ->leftJoin('devises as d', 'd.id', '=', 'l.id_devise')
+            ->leftJoin('variantes_produits as vp', 'vp.id', '=', 'l.id_variante_produit')
             ->select(
                 'm.id as mouvement_id',
                 'p.code as produit_code',
                 'p.nom as produit_nom',
                 'l.numero_lot',
+                'l.id_variante_produit',
+                'vp.code_sku as variante_code',
+                'vp.combinaison as variante_combinaison',
                 'l.date_reception',
                 'm.date_mouvement',
                 'm.type_mouvement',
@@ -93,11 +97,16 @@ class ReportController extends BaseController
             $quantiteEntree = $row->type_mouvement === 'entree' ? (int) $row->quantite : 0;
             $quantiteSortie = $row->type_mouvement === 'sortie' ? (int) $row->quantite : 0;
             $quantiteStock = max(0, (int) ($row->quantite_restante_apres ?? 0));
+            $varianteLabel = $this->formatVarianteLabel($row->variante_combinaison ?? null, $row->variante_code ?? null);
 
             return [
                 'produit_nom' => $row->produit_nom,
                 'produit_code' => $row->produit_code,
                 'numero_lot' => $row->numero_lot,
+                'id_variante_produit' => $row->id_variante_produit,
+                'variante_code' => $row->variante_code,
+                'variante_label' => $varianteLabel,
+                'label_produit' => trim($row->produit_nom . ($varianteLabel && $varianteLabel !== 'Standard' ? ' - ' . $varianteLabel : '')),
                 'date_reception' => $row->date_reception,
                 'date_mouvement' => $row->date_mouvement,
                 'type_mouvement' => $row->type_mouvement,
@@ -145,6 +154,31 @@ class ReportController extends BaseController
         $rows = $this->buildStockFifoRows($productId, $targetDeviseId);
         $currency = $this->resolveCurrencyLabel($targetDeviseId, $rows);
         return view('reports.stock_fifo', ['rows' => $rows, 'currencyLabel' => $currency['label'], 'currencyCode' => $currency['code'], 'hasMissingRate' => $currency['hasMissingRate']]);
+    }
+
+    private function formatVarianteLabel($combinaison, ?string $code = null): string
+    {
+        if (! empty($combinaison)) {
+            if (is_string($combinaison)) {
+                $decoded = json_decode($combinaison, true);
+                if (is_array($decoded) && ! empty($decoded)) {
+                    $values = array_values($decoded);
+                    return implode(' / ', array_filter(array_map('strval', $values), fn ($value) => $value !== ''));
+                }
+                return $combinaison;
+            }
+
+            if (is_array($combinaison) && ! empty($combinaison)) {
+                $values = array_values($combinaison);
+                return implode(' / ', array_filter(array_map('strval', $values), fn ($value) => $value !== ''));
+            }
+        }
+
+        if (! empty($code)) {
+            return $code;
+        }
+
+        return 'Standard';
     }
 
     private function resolveCurrencyLabel(?int $targetDeviseId, $rows): array
