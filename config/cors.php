@@ -19,14 +19,19 @@ return [
     'allowed_methods' => ['*'],
     'allowed_headers' => ['*'],
 
-    'allowed_origins' => [
+    'allowed_origins' => array_values(array_filter([
         env('FRONTEND_URL', 'http://localhost:3000'),
+        rtrim((string) env('FRONTEND_URL', 'http://localhost:3000'), '/'),
+        'http://localhost:3000',
         'http://localhost:3001',
         'http://localhost:3002',
-        'https://gestionstock-two.vercel.app/',
-    ],
+        'https://gestionstock-two.vercel.app',
+    ])),
 
-    'allowed_origins_patterns' => ['#^http://localhost:\d+$#'],
+    'allowed_origins_patterns' => [
+        '#^http://localhost:\d+$#',
+        '#^https://.*\\.vercel\\.app$#',
+    ],
 
     'exposed_headers' => [],
 
