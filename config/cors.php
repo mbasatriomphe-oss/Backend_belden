@@ -23,6 +23,7 @@ return [
         env('FRONTEND_URL', 'http://localhost:3000'),
         'http://localhost:3001',
         'http://localhost:3002',
+        'https://gestionstock-two.vercel.app/',
     ],
 
     'allowed_origins_patterns' => ['#^http://localhost:\d+$#'],
