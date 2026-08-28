@@ -37,4 +37,4 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
 
 EXPOSE 80
 
-CMD ["sh", "-c", "php artisan migrate --force && exec apache2-foreground"]
+CMD ["sh", "-c", "mkdir -p storage/certs && if [ -n \"${CA_PEM_BASE64:-}\" ]; then echo \"$CA_PEM_BASE64\" | base64 -d > storage/certs/ca.pem && chmod 644 storage/certs/ca.pem; fi && php artisan config:clear && php artisan migrate --force && exec apache2-foreground"]
