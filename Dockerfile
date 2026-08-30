@@ -37,4 +37,4 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
 
 EXPOSE 80
 
-CMD ["sh", "-c", "mkdir -p storage/certs && if [ -n \"${CA_PEM_BASE64:-}\" ]; then echo \"$CA_PEM_BASE64\" | base64 -d > storage/certs/ca.pem && chmod 644 storage/certs/ca.pem; fi && php artisan config:clear && php artisan migrate --force && exec apache2-foreground"]
+CMD ["sh", "-c", "if [ \"${DB_CONNECTION:-}\" != \"mysql\" ]; then echo 'ERROR: DB_CONNECTION must be mysql on Render'; exit 1; fi && for required_var in DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD; do eval \"value=\\${$required_var:-}\"; if [ -z \"$value\" ]; then echo \"ERROR: missing Render variable: $required_var\"; exit 1; fi; done && mkdir -p storage/certs && if [ -n \"${CA_PEM_BASE64:-}\" ]; then echo \"$CA_PEM_BASE64\" | base64 -d > storage/certs/ca.pem && chmod 644 storage/certs/ca.pem; fi && php artisan config:clear && php artisan migrate --force && exec apache2-foreground"]
