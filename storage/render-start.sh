@@ -7,6 +7,20 @@ set -euo pipefail
 
 echo "[render-start] starting"
 
+if [ "${DB_CONNECTION:-}" != "mysql" ]; then
+  echo "[render-start] ERROR: DB_CONNECTION must be set to mysql on Render (current: ${DB_CONNECTION:-unset})"
+  exit 1
+fi
+
+for required_var in DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD; do
+  if [ -z "${!required_var:-}" ]; then
+    echo "[render-start] ERROR: missing required Render variable: $required_var"
+    exit 1
+  fi
+done
+
+echo "[render-start] MySQL target: ${DB_HOST}:${DB_PORT}/${DB_DATABASE}"
+
 mkdir -p storage/certs
 
 if [ -n "${CA_PEM_BASE64:-}" ]; then
