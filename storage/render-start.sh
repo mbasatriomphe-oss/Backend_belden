@@ -7,7 +7,9 @@ set -euo pipefail
 
 echo "[render-start] starting"
 
-if [ "${DB_CONNECTION:-}" != "mysql" ]; then
+export DB_CONNECTION="${DB_CONNECTION:-mysql}"
+
+if [ "$DB_CONNECTION" != "mysql" ]; then
   echo "[render-start] ERROR: DB_CONNECTION must be set to mysql on Render (current: ${DB_CONNECTION:-unset})"
   exit 1
 fi

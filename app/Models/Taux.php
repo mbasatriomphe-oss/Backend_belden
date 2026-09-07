@@ -10,7 +10,7 @@ class Taux extends Model
     use HasFactory;
 
     protected $table = 'taux';
-    
+
     protected $fillable = [
         'devise_source',
         'devise_but',
