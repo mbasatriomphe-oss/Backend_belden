@@ -70,20 +70,29 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
+        $email = strtolower(trim((string) $request->input('email', '')));
+        $request->merge(['email' => $email]);
+
         $validated = $request->validate([
             'nom' => 'required|string|max:255',
             'post_nom' => 'nullable|string|max:255',
             'prenom' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique('users')->where(fn ($query) => $query->whereRaw('LOWER(email) = ?', [$email])),
+            ],
             'password' => ['required', 'confirmed', Password::defaults()],
             'role' => ['required', Rule::in(['user', 'admin'])]
         ]);
 
         $user = User::create([
-            'nom' => $validated['nom'],
-            'post_nom' => $validated['post_nom'] ?? null,
-            'prenom' => $validated['prenom'],
-            'email' => $validated['email'],
+            'nom' => trim($validated['nom']),
+            'post_nom' => $validated['post_nom'] ? trim($validated['post_nom']) : null,
+            'prenom' => trim($validated['prenom']),
+            'email' => strtolower(trim($validated['email'])),
             'password' => Hash::make($validated['password']),
             'role' => $validated['role']
         ]);
@@ -111,6 +120,10 @@ class UserController extends Controller
      */
     public function update(Request $request, User $user)
     {
+        if ($request->has('email')) {
+            $request->merge(['email' => strtolower(trim((string) $request->input('email')))]);
+        }
+
         $validated = $request->validate([
             'nom' => 'sometimes|string|max:255',
             'post_nom' => 'nullable|string|max:255',
@@ -120,7 +133,7 @@ class UserController extends Controller
                 'string',
                 'email',
                 'max:255',
-                Rule::unique('users')->ignore($user->id)
+                Rule::unique('users')->ignore($user->id)->where(fn ($query) => $query->whereRaw('LOWER(email) = ?', [strtolower(trim((string) $request->input('email')))]))
             ],
             'password' => ['sometimes', 'confirmed', Password::defaults()],
             'role' => ['sometimes', Rule::in(['user', 'admin'])]
@@ -128,6 +141,10 @@ class UserController extends Controller
 
         if (isset($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
+        }
+
+        if (isset($validated['email'])) {
+            $validated['email'] = strtolower(trim($validated['email']));
         }
 
         $user->update($validated);

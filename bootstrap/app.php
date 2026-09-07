@@ -14,6 +14,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('notifications:stock-rupture-reminders')->dailyAt('08:00');
+        $schedule->command('notifications:stock-available')->dailyAt('09:00');
+        $schedule->command('notifications:debt-reminders')->dailyAt('10:00');
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([

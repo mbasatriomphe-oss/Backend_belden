@@ -107,6 +107,8 @@ Route::get('/rapports/ventes/public', [\App\Http\Controllers\ReportController::c
         Route::apiResource('attributs-templates', AttributTemplateController::class);
         Route::apiResource('valeurs-produit-dynamiques', ValeurProduitDynamiqueController::class);
         Route::apiResource('variantes-produits', VarianteProduitController::class);
+        Route::post('/notifications/stock-available', [\App\Http\Controllers\CustomerNotificationController::class, 'sendStockAvailable']);
+        Route::post('/notifications/debt-reminders', [\App\Http\Controllers\CustomerNotificationController::class, 'sendDebtReminders']);
         Route::post('/vendeurs', [VendeurController::class, 'store'])->name('vendeurs.store');
         Route::put('/vendeurs/{id}', [VendeurController::class, 'update'])->name('vendeurs.update');
         Route::delete('/vendeurs/{id}', [VendeurController::class, 'destroy'])->name('vendeurs.destroy');

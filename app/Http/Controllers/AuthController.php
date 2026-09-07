@@ -16,19 +16,28 @@ class AuthController extends Controller
      */
     public function register(Request $request)
     {
+        $email = strtolower(trim((string) $request->input('email', '')));
+        $request->merge(['email' => $email]);
+
         $validated = $request->validate([
             'nom' => 'required|string|max:255',
             'post_nom' => 'nullable|string|max:255',
             'prenom' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique('users')->where(fn ($query) => $query->whereRaw('LOWER(email) = ?', [$email])),
+            ],
             'password' => ['required', 'confirmed', Password::defaults()],
         ]);
 
         $user = User::create([
-            'nom' => $validated['nom'],
-            'post_nom' => $validated['post_nom'] ?? null,
-            'prenom' => $validated['prenom'],
-            'email' => $validated['email'],
+            'nom' => trim($validated['nom']),
+            'post_nom' => $validated['post_nom'] ? trim($validated['post_nom']) : null,
+            'prenom' => trim($validated['prenom']),
+            'email' => strtolower(trim($validated['email'])),
             'password' => Hash::make($validated['password']),
             'role' => 'user', // Par défaut, rôle user
         ]);
@@ -55,19 +64,28 @@ class AuthController extends Controller
             'secret' => 'required|string|in:' . env('ADMIN_SECRET_KEY', 'admin123'),
         ]);
 
+        $email = strtolower(trim((string) $request->input('email', '')));
+        $request->merge(['email' => $email]);
+
         $validated = $request->validate([
             'nom' => 'required|string|max:255',
             'post_nom' => 'nullable|string|max:255',
             'prenom' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique('users')->where(fn ($query) => $query->whereRaw('LOWER(email) = ?', [$email])),
+            ],
             'password' => ['required', 'confirmed', Password::defaults()],
         ]);
 
         $user = User::create([
-            'nom' => $validated['nom'],
-            'post_nom' => $validated['post_nom'] ?? null,
-            'prenom' => $validated['prenom'],
-            'email' => $validated['email'],
+            'nom' => trim($validated['nom']),
+            'post_nom' => $validated['post_nom'] ? trim($validated['post_nom']) : null,
+            'prenom' => trim($validated['prenom']),
+            'email' => strtolower(trim($validated['email'])),
             'password' => Hash::make($validated['password']),
             'role' => 'admin',
         ]);
@@ -88,6 +106,9 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
+        $email = strtolower(trim((string) $request->input('email', '')));
+        $request->merge(['email' => $email]);
+
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
@@ -100,7 +121,7 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $user = User::where('email', $request->email)->firstOrFail();
+        $user = User::whereRaw('LOWER(email) = ?', [$email])->firstOrFail();
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -123,12 +144,15 @@ class AuthController extends Controller
      */
     public function loginVendeur(Request $request)
     {
+        $email = strtolower(trim((string) $request->input('email', '')));
+        $request->merge(['email' => $email]);
+
         $request->validate([
             'email'    => 'required|email',
             'password' => 'required|string',
         ]);
 
-        $vendeur = \App\Models\vendeurs::where('email', $request->email)->first();
+        $vendeur = \App\Models\vendeurs::whereRaw('LOWER(email) = ?', [$email])->first();
 
         if (!$vendeur || !Hash::check($request->password, $vendeur->password)) {
             return response()->json([
