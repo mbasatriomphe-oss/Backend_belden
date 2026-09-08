@@ -20,8 +20,9 @@
     <table>
         <thead>
         @if(count($produits) > 0)
-            @php $first = (array) $produits->first(); @endphp
+            @php $first = (array) $produits->first(); unset($first['photo_data']); @endphp
             <tr>
+                <th>Photo</th>
                 @foreach(array_keys($first) as $col)
                     @php $isNumeric = preg_match('/(quantite|qte|stock|prix|valeur|cost|montant)/i', $col) ? 'numeric' : '' ; @endphp
                     <th class="{{ $isNumeric }}">{{ ucfirst(str_replace('_', ' ', $col)) }}</th>
@@ -35,7 +36,15 @@
         @foreach($produits as $p)
             @php $row = (array) $p; @endphp
             <tr>
+                <td>
+                    @if(!empty($row['photo_data']))
+                        <img src="{{ $row['photo_data'] }}" alt="{{ $row['nom'] ?? 'Produit' }}" style="width:48px;height:48px;object-fit:cover;border-radius:6px" />
+                    @else
+                        —
+                    @endif
+                </td>
                 @foreach($row as $k => $cell)
+                    @if($k === 'photo_data') @continue @endif
                     @php $isNumeric = preg_match('/(quantite|qte|stock|prix|valeur|cost|montant)/i', $k);
                         $display = $cell;
                         if ($isNumeric && is_numeric($cell)) { $display = number_format($cell, 2); }

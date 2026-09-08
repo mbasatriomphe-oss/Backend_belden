@@ -24,6 +24,9 @@ done
 echo "[render-start] MySQL target: ${DB_HOST}:${DB_PORT}/${DB_DATABASE}"
 
 mkdir -p storage/certs
+mkdir -p storage/app/public
+rm -rf public/storage
+ln -s "$(pwd)/storage/app/public" public/storage
 
 if [ -n "${CA_PEM_BASE64:-}" ]; then
   echo "[render-start] Writing storage/certs/ca.pem from CA_PEM_BASE64"

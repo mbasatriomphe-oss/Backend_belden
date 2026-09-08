@@ -7,6 +7,8 @@ use App\Models\caisse;
 use App\Models\ligne_approvisionnements;
 use App\Models\lots;
 use App\Models\mouvements_stock_fifos;
+use App\Models\produits;
+use App\Models\VarianteProduit;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -151,6 +153,18 @@ class ApprovisionnementController extends ApiCrudController
                     'id_devise' => (int) $lineItem['id_devise'],
                     'paye_par_caisse' => isset($lineItem['paye_par_caisse']) ? (bool) $lineItem['paye_par_caisse'] : false,
                 ]);
+
+                if ($lineItem['prix_vente'] !== null) {
+                    if (isset($lineItem['id_variante_produit'])) {
+                        VarianteProduit::query()
+                            ->whereKey((int) $lineItem['id_variante_produit'])
+                            ->update(['prix_vente' => $lineItem['prix_vente']]);
+                    } else {
+                        produits::query()
+                            ->whereKey((int) $lineItem['id_produit'])
+                            ->update(['prix_vente' => $lineItem['prix_vente']]);
+                    }
+                }
 
                 if ($driver === 'sqlite') {
                     $lot = lots::create([

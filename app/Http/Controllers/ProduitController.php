@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class ProduitController extends ApiCrudController
 {
@@ -31,7 +32,16 @@ class ProduitController extends ApiCrudController
                         FROM lots l
                         LEFT JOIN mouvements_stock_fifos m ON m.id_lot = l.id
                         WHERE l.id_variante_produit = variantes_produits.id
-                    ), 0) as quantite_stock');
+                    ), 0) as quantite_stock')
+                    ->selectSub(
+                        DB::table('ligne_approvisionnements as la')
+                            ->select('la.prix_vente')
+                            ->whereColumn('la.id_variante_produit', 'variantes_produits.id')
+                            ->whereNotNull('la.prix_vente')
+                            ->latest('la.id')
+                            ->limit(1),
+                        'dernier_prix_vente'
+                    );
             },
         ]);
 

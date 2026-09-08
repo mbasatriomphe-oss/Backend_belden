@@ -86,7 +86,11 @@ class MouvementStockFifoController extends ApiCrudController
 
     public function stocksDisponibles(): JsonResponse
     {
-        $stocks = DB::table('v_stock_disponible')->orderBy('nom')->get();
+        $stocks = DB::table('v_stock_disponible as stock')
+            ->leftJoin('produits as produit', 'produit.id', '=', 'stock.id')
+            ->select('stock.*', 'produit.photo')
+            ->orderBy('stock.nom')
+            ->get();
 
         return response()->json([
             'status' => 'success',

@@ -39,7 +39,7 @@ class ReportController extends BaseController
     public function stockPdf(Request $request)
     {
         try {
-            $produits = DB::table('produits')->get();
+            $produits = $this->stockReportProducts();
             return $this->generatePdfFromView('reports.stock', ['produits' => $produits], 'stock.pdf');
         } catch (\Exception $e) {
             if (config('app.debug')) {
@@ -254,7 +254,7 @@ class ReportController extends BaseController
     // --- HTML fallbacks (existing) ---
     public function stockHtml(Request $request)
     {
-        $produits = DB::table('produits')->get();
+        $produits = $this->stockReportProducts();
         return view('reports.stock', compact('produits'));
     }
 
@@ -280,8 +280,45 @@ class ReportController extends BaseController
     // --- Public signed endpoints ---
     public function stockHtmlPublic(Request $request)
     {
-        $produits = DB::table('produits')->get();
+        $produits = $this->stockReportProducts();
         return view('reports.stock', compact('produits'));
+    }
+
+    private function stockReportProducts()
+    {
+        return DB::table('produits')
+            ->leftJoin('categories', 'categories.id', '=', 'produits.categorie_id')
+            ->select([
+                'produits.id',
+                'produits.code',
+                'produits.nom',
+                'categories.nom as categorie',
+                'produits.photo',
+                'produits.prix_achat',
+                'produits.prix_vente',
+                'produits.quantite_stock',
+            ])
+            ->orderBy('produits.nom')
+            ->get()
+            ->map(function ($product) {
+                $product->photo_data = $this->localImageData($product->photo);
+                return $product;
+            });
+    }
+
+    private function localImageData(?string $photo): ?string
+    {
+        if (!$photo) {
+            return null;
+        }
+
+        $path = Storage::disk('public')->path(ltrim($photo, '/'));
+        if (!File::exists($path)) {
+            return null;
+        }
+
+        $mime = File::mimeType($path) ?: 'image/jpeg';
+        return 'data:' . $mime . ';base64,' . base64_encode(File::get($path));
     }
 
     public function ventesHtmlPublic(Request $request)
