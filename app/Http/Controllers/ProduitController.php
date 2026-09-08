@@ -54,7 +54,7 @@ class ProduitController extends ApiCrudController
             'description' => 'nullable|string',
             'photo' => 'nullable|string|max:255',
             'photo_file' => 'nullable|file|image|max:4096',
-            'unite_id' => 'nullable|integer|exists:unites,id',
+            'unite_id' => 'required|integer|exists:unites,id',
             'categorie_id' => 'required|integer|exists:categories,id',
             'has_variantes' => ['required', 'boolean'],
             'prix_achat' => 'nullable|numeric|min:0',
@@ -71,7 +71,7 @@ class ProduitController extends ApiCrudController
             'description' => 'nullable|string',
             'photo' => 'nullable|string|max:255',
             'photo_file' => 'nullable|file|image|max:4096',
-            'unite_id' => 'nullable|integer|exists:unites,id',
+            'unite_id' => 'required|integer|exists:unites,id',
             'categorie_id' => 'sometimes|integer|exists:categories,id',
             'has_variantes' => ['sometimes', 'boolean'],
             'prix_achat' => 'nullable|numeric|min:0',
@@ -90,7 +90,6 @@ class ProduitController extends ApiCrudController
         }
 
         if (($validated['has_variantes'] ?? false) === true) {
-            $validated['unite_id'] = null;
             $validated['prix_achat'] = null;
             $validated['prix_vente'] = null;
             $validated['quantite_stock'] = null;
@@ -117,7 +116,6 @@ class ProduitController extends ApiCrudController
         }
 
         if (($validated['has_variantes'] ?? $model->has_variantes) === true) {
-            $validated['unite_id'] = null;
             $validated['prix_achat'] = null;
             $validated['prix_vente'] = null;
             $validated['quantite_stock'] = null;
