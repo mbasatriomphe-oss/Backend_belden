@@ -24,6 +24,7 @@
         .report-title { margin: 6px 0 10px 0 }
         .muted { color: #666; font-size: 12px }
         .page-number:after { content: counter(page) }
+        .report-actions { display: none !important }
     </style>
     @stack('head')
 </head>
