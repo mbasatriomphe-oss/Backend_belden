@@ -15,12 +15,14 @@ class VarianteProduit extends Model
         'produit_id',
         'code_sku',
         'combinaison',
+        'prix_vente',
         'quantite_stock',
         'seuil_alerte',
     ];
 
     protected $casts = [
         'combinaison' => 'array',
+        'prix_vente' => 'decimal:2',
         'quantite_stock' => 'integer',
         'seuil_alerte' => 'integer',
     ];
