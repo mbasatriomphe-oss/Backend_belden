@@ -39,9 +39,6 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/login-vendeur', [AuthController::class, 'loginVendeur']);
 
-// Route publique pour créer le premier admin (à désactiver après utilisation)
-Route::post('/register-admin', [AuthController::class, 'registerAdmin']);
-
 // Routes publiques de callback MaishaPay
 Route::get('/maishapay/redirect/{session}', [MaishaPayController::class, 'redirectToMaishaPay'])->name('maishapay.redirect');
 Route::get('/maishapay/success', [MaishaPayController::class, 'success'])->name('maishapay.success');

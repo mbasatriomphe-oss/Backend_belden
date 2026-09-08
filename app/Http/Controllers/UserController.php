@@ -80,7 +80,7 @@ class UserController extends Controller
             'email' => [
                 'required',
                 'string',
-                'email',
+                'email:rfc,dns',
                 'max:255',
                 Rule::unique('users')->where(fn ($query) => $query->whereRaw('LOWER(email) = ?', [$email])),
             ],
@@ -131,7 +131,7 @@ class UserController extends Controller
             'email' => [
                 'sometimes',
                 'string',
-                'email',
+                'email:rfc,dns',
                 'max:255',
                 Rule::unique('users')->ignore($user->id)->where(fn ($query) => $query->whereRaw('LOWER(email) = ?', [strtolower(trim((string) $request->input('email')))]))
             ],
