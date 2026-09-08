@@ -142,6 +142,7 @@ Route::get('/rapports/ventes/public', [\App\Http\Controllers\ReportController::c
         Route::get('/rapports/recap-journalier', [RapportController::class, 'recapJournalier'])->name('rapports.recap-journalier');
         Route::get('/rapports/etat-caisses', [RapportController::class, 'etatCaisses'])->name('rapports.etat-caisses');
         Route::get('/rapports/chiffre-affaires', [RapportController::class, 'chiffreAffaires'])->name('rapports.chiffre-affaires');
+        Route::get('/rapports/ventes', [RapportController::class, 'ventes'])->name('rapports.ventes');
         Route::get('/rapports/benefice-periode', [RapportController::class, 'beneficePeriod'])->name('rapports.benefice-periode');
         Route::get('/rapports/benefice-produit', [RapportController::class, 'beneficeProduit'])->name('rapports.benefice-produit');
         Route::get('/rapports/top-produits', [RapportController::class, 'topProduits'])->name('rapports.top-produits');

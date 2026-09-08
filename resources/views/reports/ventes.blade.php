@@ -11,7 +11,7 @@
         $totalAmount = $amountField ? $ventes->sum($amountField) : null;
     @endphp
 
-    <div class="report-title"><h1>Rapport - Ventes</h1></div>
+    <div class="report-title"><h1>Rapport - Ventes</h1><div class="muted">{{ $count ? 'Données issues de la base de données' : 'Aucune vente sur la période' }}</div></div>
 
     <div class="report-summary">
         <div class="summary-item"><strong>Ventes</strong><div class="muted">{{ $count }}</div></div>
@@ -25,7 +25,7 @@
         @if(count($ventes) > 0)
             @php $first = (array) $ventes->first(); @endphp
             <tr>
-                @foreach(array_keys($first) as $col)
+            @foreach(array_keys($first) as $col)
                     @php $isNumeric = preg_match('/(montant|prix|total|amount|quantite|qty|price|cost)/i', $col) ? 'numeric' : '' ; @endphp
                     <th class="{{ $isNumeric }}">{{ ucfirst(str_replace('_', ' ', $col)) }}</th>
                 @endforeach

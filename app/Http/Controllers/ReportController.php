@@ -20,7 +20,17 @@ class ReportController extends BaseController
     public function ventesPdf(Request $request)
     {
         try {
-            $ventes = DB::table('ventes')->get();
+            $query = DB::table('ventes as v')
+                ->leftJoin('clients as c', 'c.id', '=', 'v.id_client')
+                ->leftJoin('vendeurs as ve', 've.id', '=', 'v.id_vendeur')
+                ->select([
+                    'v.code', 'v.date', 'v.montant_total', 'v.montant_paye', 'v.reste_a_payer', 'v.statut_paiement',
+                    DB::raw("TRIM(CONCAT(COALESCE(c.prenom, ''), ' ', COALESCE(c.nom, ''))) as client"),
+                    DB::raw("TRIM(CONCAT(COALESCE(ve.prenom, ''), ' ', COALESCE(ve.nom, ''))) as vendeur"),
+                ]);
+            if ($request->filled('date_debut')) $query->whereDate('v.date', '>=', $request->query('date_debut'));
+            if ($request->filled('date_fin')) $query->whereDate('v.date', '<=', $request->query('date_fin'));
+            $ventes = $query->orderByDesc('v.date')->get();
             return $this->generatePdfFromView('reports.ventes', ['ventes' => $ventes], 'ventes.pdf');
         } catch (\Exception $e) {
             if (config('app.debug')) {

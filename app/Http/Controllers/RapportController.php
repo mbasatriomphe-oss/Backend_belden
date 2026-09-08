@@ -9,6 +9,47 @@ use App\Models\Taux;
 
 class RapportController extends Controller
 {
+    public function ventes(Request $request): JsonResponse
+    {
+        $start = $request->query('date_debut', now()->toDateString());
+        $end = $request->query('date_fin', $start);
+
+        $base = DB::table('ligne_ventes as lv')
+            ->join('ventes as v', 'v.id', '=', 'lv.id_vente')
+            ->join('variantes_produits as vp', 'vp.id', '=', 'lv.id_variante_produit')
+            ->join('produits as p', 'p.id', '=', 'vp.produit_id')
+            ->leftJoin('devises as d', 'd.id', '=', 'lv.id_devise')
+            ->whereDate('v.date', '>=', $start)
+            ->whereDate('v.date', '<=', $end);
+
+        $summary = (clone $base)
+            ->selectRaw('COUNT(DISTINCT v.id) as ventes, COALESCE(SUM(lv.quantite), 0) as quantite, COALESCE(SUM(lv.quantite * lv.prix_vente), 0) as chiffre_affaires')
+            ->first();
+
+        $daily = (clone $base)
+            ->selectRaw('DATE(v.date) as date, COUNT(DISTINCT v.id) as ventes, SUM(lv.quantite) as quantite, SUM(lv.quantite * lv.prix_vente) as chiffre_affaires, d.code as devise_code')
+            ->groupByRaw('DATE(v.date), d.code')
+            ->orderByDesc('date')
+            ->get();
+
+        $products = (clone $base)
+            ->selectRaw('p.id, p.code, p.nom, SUM(lv.quantite) as quantite, SUM(lv.quantite * lv.prix_vente) as chiffre_affaires, d.code as devise_code')
+            ->groupBy('p.id', 'p.code', 'p.nom', 'd.code')
+            ->orderByDesc('chiffre_affaires')
+            ->limit(20)
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'periode' => ['date_debut' => $start, 'date_fin' => $end],
+                'summary' => $summary,
+                'daily' => $daily,
+                'products' => $products,
+            ],
+        ]);
+    }
+
     public function recapJournalier(): JsonResponse
     {
         $recap = DB::table('v_recap_journalier')->first();
@@ -83,9 +124,11 @@ class RapportController extends Controller
             ->toArray();
 
         $linesQ = DB::table('ligne_ventes as lv')
-            ->join('ventes as v', 'v.id', '=', 'lv.id_vente')
+                ->join('ventes as v', 'v.id', '=', 'lv.id_vente')
+                ->join('variantes_produits as vp', 'vp.id', '=', 'lv.id_variante_produit')
+                ->join('produits as p', 'p.id', '=', 'vp.produit_id')
             ->leftJoin('devises as d', 'd.id', '=', 'lv.id_devise')
-            ->select('lv.id_produit', 'lv.quantite', 'lv.prix_vente', 'lv.id_devise', 'v.date as vente_date', 'd.code as devise_code', DB::raw('v.id as vente_id'), DB::raw('DATE(v.date) as date_vente'));
+                ->select('vp.produit_id as id_produit', 'lv.quantite', 'lv.prix_vente', 'lv.id_devise', 'v.date as vente_date', 'd.code as devise_code', DB::raw('v.id as vente_id'), DB::raw('DATE(v.date) as date_vente'));
 
         if ($start) $linesQ->whereDate('v.date', '>=', $start);
         if ($end) $linesQ->whereDate('v.date', '<=', $end);
@@ -159,9 +202,10 @@ class RapportController extends Controller
 
         $linesQ = DB::table('ligne_ventes as lv')
             ->join('ventes as v', 'v.id', '=', 'lv.id_vente')
-            ->join('produits as p', 'p.id', '=', 'lv.id_produit')
+            ->join('variantes_produits as vp', 'vp.id', '=', 'lv.id_variante_produit')
+            ->join('produits as p', 'p.id', '=', 'vp.produit_id')
             ->leftJoin('devises as d', 'd.id', '=', 'lv.id_devise')
-            ->select('lv.id_produit', 'p.code as produit_code', 'p.nom as produit_nom', 'lv.quantite', 'lv.prix_vente', 'lv.id_devise', 'v.date as vente_date', 'd.code as devise_code');
+            ->select('vp.produit_id as id_produit', 'p.code as produit_code', 'p.nom as produit_nom', 'lv.quantite', 'lv.prix_vente', 'lv.id_devise', 'v.date as vente_date', 'd.code as devise_code');
 
         if ($start) $linesQ->whereDate('v.date', '>=', $start);
         if ($end) $linesQ->whereDate('v.date', '<=', $end);
